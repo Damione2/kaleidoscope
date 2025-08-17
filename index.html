@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Kaleidoscope Drawing</title>
+  <script src="p5.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+      font-family: sans-serif;
+      color: #fff;
+      position: relative;
+    }
+    canvas {
+      display: block;
+    }
+    .param-table {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 14px;
+      z-index: 10;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: opacity 0.5s;
+    }
+    .param-table.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .param-table table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    .param-table th, .param-table td {
+      padding: 5px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .param-table th {
+      background: rgba(0, 255, 0, 0.1);
+      color: #fff;
+    }
+    .param-table td {
+      background: rgba(0, 0, 0, 0.2);
+    }
+    .controls-left, .controls-right {
+      position: absolute;
+      bottom: 20px;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: opacity 0.5s;
+    }
+    .controls-left {
+      left: 20px;
+    }
+    .controls-right {
+      right: 20px;
+    }
+    .controls-left.hidden, .controls-right.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .controls-left button, .controls-right button {
+      margin: 5px;
+      padding: 5px 10px;
+      background: transparent;
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+      opacity: 0.8;
+    }
+    .controls-left button:hover, .controls-right button:hover {
+      opacity: 1;
+      border-color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+<div class="controls-left hidden" id="controls-left">
+  <div>
+    <button onclick="changeParam('symmetry', -1)">Sym - [U]</button>
+    <button onclick="changeParam('symmetry', 1)">Sym + [I]</button>
+    <button onclick="toggleNormalDraw()">Normal Draw - [K]</button>
+  </div>
+  <div>
+    <button onclick="changeParam('size', -5)">Size - [D]</button>
+    <button onclick="changeParam('size', 5)">Size + [F]</button>
+  </div>
+  <div>
+    <button onclick="changeParam('animSpeed', -0.005)">Anim Spd - [T]</button>
+    <button onclick="changeParam('animSpeed', 0.005)">Anim Spd + [Y]</button>
+  </div>
+  <div>
+    <button onclick="changeParam('waveSpeed', -1)">Wave Spd - [Q]</button>
+    <button onclick="changeParam('waveSpeed', 1)">Wave Spd + [W]</button>
+  </div>
+</div>
+
+<div class="controls-right hidden" id="controls-right">
+  <div>
+    <button onclick="changeParam('breathingFreq', -0.1)">Breath Freq - [A]</button>
+    <button onclick="changeParam('breathingFreq', 0.1)">Breath Freq + [S]</button>
+  </div>
+  <div>
+    <button onclick="changeParam('waveSpatialFreq', -0.01)">Wave Freq - [E]</button>
+    <button onclick="changeParam('waveSpatialFreq', 0.01)">Wave Freq + [R]</button>
+  </div>
+  <div>
+    <button onclick="changeParam('breathingAmp', -10)">Breath Amp - [Z]</button>
+    <button onclick="changeParam('breathingAmp', 10)">Breath Amp + [X]</button>
+  </div>
+  <div>
+    <button onclick="changeParam('colorShiftSpeed', -10)">Color Shift - [G]</button>
+    <button onclick="changeParam('colorShiftSpeed', 10)">Color Shift + [H]</button>
+  </div>
+  <div>
+    <button onclick="changeParam('pulseMin', -0.1)">Pulse Min - [V]</button>
+    <button onclick="changeParam('pulseMin', 0.1)">Pulse Min + [B]</button>
+  </div>
+  <div>
+    <button onclick="changeParam('minDist', -1)">Spacing - [[</button>
+    <button onclick="changeParam('minDist', 1)">Spacing + []]</button>
+  </div>
+  <div>
+    <button id="toggleBreathingBtn" onclick="toggleBreathing()">Breathing - ON [P]</button>
+    <button onclick="resetSettings()">Reset - [⌫]</button>
+    <button onclick="toggleUI()">Hide UI - [`]</button>
+  </div>
+</div>
+
+<div class="param-table hidden" id="param-table">
+  <table>
+    <tr><th>Sym</th><td id="sym">6</td></tr>
+    <tr><th>Size</th><td id="size">15</td></tr>
+    <tr><th>Anim Spd</th><td id="animSpeed">0.01</td></tr>
+    <tr><th>Wave Spd</th><td id="waveSpeed">5</td></tr>
+    <tr><th>Breath Freq</th><td id="breathingFreq">0.5</td></tr>
+    <tr><th>Wave Freq</th><td id="waveSpatialFreq">0.05</td></tr>
+    <tr><th>Breath Amp</th><td id="breathingAmp">50</td></tr>
+    <tr><th>Color Shift</th><td id="colorShiftSpeed">50</td></tr>
+    <tr><th>Pulse Min</th><td id="pulseMin">0.5</td></tr>
+    <tr><th>Spacing</th><td id="minDist">1</td></tr>
+  </table>
+</div>
+
+<script>
+// Prevent right-click context menu unless Ctrl is pressed
+document.oncontextmenu = function(event) {
+  return event.ctrlKey;
+};
+
+// Global variables
+let numSymmetry = 6;
+let time = 0;
+let positions = [];
+let baseSize = 15;
+let animSpeed = 0.01;
+let waveSpeed = 5;
+let breathingFreq = 0.5;
+let waveSpatialFreq = 0.05;
+let breathingAmp = 50;
+let colorShiftSpeed = 50;
+let pulseMin = 0.5;
+let breathingOn = true;
+let lastSymmetry = 6;
+let minDist = 1;
+let isUIVisible = false; // Add a state variable for UI visibility
+
+// Default settings
+const defaultSettings = {
+  numSymmetry: 6,
+  waveSpeed: 3,
+  breathingFreq: 0.5,
+  breathingAmp: 30,
+  waveSpatialFreq: 0.03,
+  pulseMin: 0.2,
+  minDist: 1,
+  baseSize: 15,
+  animSpeed: 0.01,
+  colorShiftSpeed: 50
+};
+
+// Auto-hide controls
+let hideTimeout;
+function showControls() {
+  if (!isUIVisible) return;
+  const controlsLeft = document.getElementById('controls-left');
+  const controlsRight = document.getElementById('controls-right');
+  const paramTable = document.getElementById('param-table');
+  controlsLeft.classList.remove('hidden');
+  controlsRight.classList.remove('hidden');
+  paramTable.classList.remove('hidden');
+  clearTimeout(hideTimeout);
+  hideTimeout = setTimeout(() => {
+    controlsLeft.classList.add('hidden');
+    controlsRight.classList.add('hidden');
+    paramTable.classList.add('hidden');
+  }, 3000);
+}
+document.addEventListener('mousemove', showControls);
+document.addEventListener('keydown', showControls);
+
+function toggleUI() {
+  const controlsLeft = document.getElementById('controls-left');
+  const controlsRight = document.getElementById('controls-right');
+  const paramTable = document.getElementById('param-table');
+  isUIVisible = !isUIVisible;
+  if (isUIVisible) {
+    controlsLeft.classList.remove('hidden');
+    controlsRight.classList.remove('hidden');
+    paramTable.classList.remove('hidden');
+    showControls(); // Start the auto-hide timer
+  } else {
+    clearTimeout(hideTimeout);
+    controlsLeft.classList.add('hidden');
+    controlsRight.classList.add('hidden');
+    paramTable.classList.add('hidden');
+  }
+}
+
+// Load saved drawing
+const isSavedDrawing = window.location.hash.startsWith('#positions=');
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  colorMode(HSB, 360, 100, 100, 1);
+  background(0);
+  resetSettings();
+  toggleUI(); // Initial call to show controls
+
+  if (isSavedDrawing) {
+    try {
+      const positionsString = decodeURIComponent(window.location.hash.substring('#positions='.length));
+      positions = JSON.parse(positionsString);
+    } catch (e) {
+      console.error("Failed to parse drawing data from URL:", e);
+      positions = [];
+    }
+  }
+}
+
+function draw() {
+  background(0);
+
+  if (mouseIsPressed) {
+    let button = mouseButton;
+    if (button === LEFT || (button === RIGHT && !keyIsDown(CONTROL))) {
+      let currentX = mouseX - width / 2;
+      let currentY = mouseY - height / 2;
+      if (positions.length === 0 || dist(currentX, currentY, positions[positions.length - 1][0], positions[positions.length - 1][1]) > minDist) {
+        positions.push([currentX, currentY, button]);
+      }
+    }
+  }
+
+  translate(width / 2, height / 2);
+
+  for (let i = 0; i < numSymmetry; i++) {
+    push();
+    rotate(TWO_PI * i / numSymmetry);
+    drawTetrahedronLine();
+    pop();
+
+    if (numSymmetry > 1) {
+      push();
+      rotate(TWO_PI * i / numSymmetry);
+      scale(1, -1);
+      drawTetrahedronLine();
+      pop();
+    }
+  }
+
+  time += animSpeed;
+}
+
+function drawTetrahedronLine() {
+  for (let i = 0; i < positions.length; i++) {
+    let [x, y, button] = positions[i];
+    let pulseValue = getDistancePulse(x, y, time);
+
+    let hue, saturation, brightness, alpha;
+    if (button === RIGHT) {
+      hue = 0;
+      saturation = 0;
+      brightness = 70 + 30 * sin(time * 200 * animSpeed + i * 0.4);
+      alpha = 0.5 + 0.4 * sin(time * 300 * animSpeed + i * 0.5);
+    } else {
+      hue = (time * colorShiftSpeed + i * 10) % 360;
+      if (hue > 60 && hue < 180) {
+        hue = (hue < 120) ? 60 : 180;
+      }
+      saturation = 100;
+      brightness = 70 + 30 * sin(time * 200 * animSpeed + i * 0.4);
+      alpha = 0.5 + 0.4 * sin(time * 300 * animSpeed + i * 0.5);
+    }
+
+    brightness = brightness * pulseValue;
+    let currentSize = baseSize * pulseValue;
+    hue = (hue + sin(time * 100 * animSpeed + i * 0.5) * 10) % 360;
+
+    fill(hue, saturation, brightness, alpha);
+    noStroke();
+    beginShape();
+    vertex(x, y - currentSize / sqrt(3));
+    vertex(x - currentSize / 2, y + currentSize / (2 * sqrt(3)));
+    vertex(x + currentSize / 2, y + currentSize / (2 * sqrt(3)));
+    endShape(CLOSE);
+  }
+}
+
+function getDistancePulse(x, y, time) {
+  if (!breathingOn) {
+    return 1;
+  }
+  const d = dist(x, y, 0, 0);
+  const pulse = sin(time * waveSpeed + (d + sin(time * breathingFreq) * breathingAmp) * waveSpatialFreq);
+  return map(pulse, -1, 1, pulseMin, 1);
+}
+
+function toggleBreathing() {
+  breathingOn = !breathingOn;
+  const button = document.getElementById('toggleBreathingBtn');
+  button.textContent = 'Breathing - ' + (breathingOn ? 'ON' : 'OFF') + ' [P]';
+  showControls();
+}
+
+function toggleNormalDraw() {
+  if (numSymmetry === 1) {
+    numSymmetry = lastSymmetry;
+  } else {
+    lastSymmetry = numSymmetry;
+    numSymmetry = 1;
+  }
+  document.getElementById('sym').textContent = numSymmetry;
+  showControls();
+}
+
+function saveToTextFile() {
+  const positionsStr = JSON.stringify(positions);
+  const now = new Date();
+  const timestamp = now.toLocaleString();
+  const url = window.location.href.split('#')[0] + `#positions=${encodeURIComponent(positionsStr)}`;
+  const fileContent = `${timestamp}: ${url}`;
+  download(fileContent, 'kaleidoscope_save.txt', 'text/plain');
+}
+
+function download(data, filename, type) {
+  const blob = new Blob([data], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
+
+function changeParam(param, delta) {
+  switch(param) {
+    case 'symmetry':
+      if (numSymmetry === 1 && delta === 1) {
+        numSymmetry = 2;
+      } else {
+        numSymmetry = Math.max(1, numSymmetry + delta);
+      }
+      document.getElementById('sym').textContent = numSymmetry;
+      break;
+    case 'size':
+      baseSize = Math.max(5, baseSize + delta);
+      document.getElementById('size').textContent = baseSize;
+      break;
+    case 'animSpeed':
+      animSpeed = Math.max(0.001, animSpeed + delta);
+      document.getElementById('animSpeed').textContent = animSpeed.toFixed(3);
+      break;
+    case 'waveSpeed':
+      waveSpeed = Math.max(1, waveSpeed + delta);
+      document.getElementById('waveSpeed').textContent = waveSpeed.toFixed(0);
+      break;
+    case 'breathingFreq':
+      breathingFreq = Math.max(0.1, breathingFreq + delta);
+      document.getElementById('breathingFreq').textContent = breathingFreq.toFixed(1);
+      break;
+    case 'waveSpatialFreq':
+      waveSpatialFreq = Math.max(0.01, waveSpatialFreq + delta);
+      document.getElementById('waveSpatialFreq').textContent = waveSpatialFreq.toFixed(2);
+      break;
+    case 'breathingAmp':
+      breathingAmp = Math.max(10, breathingAmp + delta);
+      document.getElementById('breathingAmp').textContent = breathingAmp.toFixed(0);
+      break;
+    case 'colorShiftSpeed':
+      colorShiftSpeed = Math.max(10, colorShiftSpeed + delta);
+      document.getElementById('colorShiftSpeed').textContent = colorShiftSpeed.toFixed(0);
+      break;
+    case 'pulseMin':
+      pulseMin = Math.min(0.9, Math.max(0.1, pulseMin + delta));
+      document.getElementById('pulseMin').textContent = pulseMin.toFixed(1);
+      break;
+    case 'minDist':
+      minDist = Math.max(1, minDist + delta);
+      document.getElementById('minDist').textContent = minDist.toFixed(0);
+      break;
+  }
+  showControls();
+}
+
+function resetSettings() {
+  numSymmetry = defaultSettings.numSymmetry;
+  waveSpeed = defaultSettings.waveSpeed;
+  breathingFreq = defaultSettings.breathingFreq;
+  breathingAmp = defaultSettings.breathingAmp;
+  waveSpatialFreq = defaultSettings.waveSpatialFreq;
+  pulseMin = defaultSettings.pulseMin;
+  minDist = defaultSettings.minDist;
+  baseSize = defaultSettings.baseSize;
+  animSpeed = defaultSettings.animSpeed;
+  colorShiftSpeed = defaultSettings.colorShiftSpeed;
+  breathingOn = true;
+  document.getElementById('toggleBreathingBtn').textContent = 'Breathing - ON [P]';
+  updateParamTable();
+  showControls();
+}
+
+function updateParamTable() {
+  document.getElementById('sym').textContent = numSymmetry;
+  document.getElementById('size').textContent = baseSize;
+  document.getElementById('animSpeed').textContent = animSpeed.toFixed(3);
+  document.getElementById('waveSpeed').textContent = waveSpeed.toFixed(0);
+  document.getElementById('breathingFreq').textContent = breathingFreq.toFixed(1);
+  document.getElementById('waveSpatialFreq').textContent = waveSpatialFreq.toFixed(2);
+  document.getElementById('breathingAmp').textContent = breathingAmp.toFixed(0);
+  document.getElementById('colorShiftSpeed').textContent = colorShiftSpeed.toFixed(0);
+  document.getElementById('pulseMin').textContent = pulseMin.toFixed(1);
+  document.getElementById('minDist').textContent = minDist.toFixed(0);
+}
+
+// 🎹 Keyboard shortcuts
+document.addEventListener('keydown', (event) => {
+  if (event.ctrlKey && event.key.toLowerCase() === 's') {
+    event.preventDefault();
+    saveToTextFile();
+    return;
+  }
+
+  if (event.key === 'Delete') {
+    positions = [];
+    showControls();
+    return;
+  }
+
+  const key = event.key.toUpperCase();
+  switch (key) {
+    case 'Q': changeParam('waveSpeed', -1); break;
+    case 'W': changeParam('waveSpeed', 1); break;
+    case 'A': changeParam('breathingFreq', -0.1); break;
+    case 'S': changeParam('breathingFreq', 0.1); break;
+    case 'Z': changeParam('breathingAmp', -10); break;
+    case 'X': changeParam('breathingAmp', 10); break;
+    case 'E': changeParam('waveSpatialFreq', -0.01); break;
+    case 'R': changeParam('waveSpatialFreq', 0.01); break;
+    case 'D': changeParam('size', -5); break;
+    case 'F': changeParam('size', 5); break;
+    case 'T': changeParam('animSpeed', -0.005); break;
+    case 'Y': changeParam('animSpeed', 0.005); break;
+    case 'G': changeParam('colorShiftSpeed', -10); break;
+    case 'H': changeParam('colorShiftSpeed', 10); break;
+    case 'V': changeParam('pulseMin', -0.1); break;
+    case 'B': changeParam('pulseMin', 0.1); break;
+    case '[': changeParam('minDist', -1); break;
+    case ']': changeParam('minDist', 1); break;
+    case 'U': changeParam('symmetry', -1); break;
+    case 'I': changeParam('symmetry', 1); break;
+    case 'K': toggleNormalDraw(); break;
+    case 'P': toggleBreathing(); break;
+  }
+  
+  // Backtick key to toggle UI
+  if (event.key === '`') {
+    toggleUI();
+  }
+
+  if (event.key === 'Backspace') {
+    resetSettings();
+  }
+});
+</script>
+</body>
+</html>
