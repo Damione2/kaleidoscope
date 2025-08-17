@@ -107,38 +107,77 @@
     .controls-bottom-left .full-width-btn {
       grid-column: span 2;
     }
-
+    /* Mobile sliders */
+    .mobile-sliders {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 10px;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 10;
+      overflow-y: auto;
+      max-height: 50vh;
+    }
+    .mobile-sliders.hidden {
+      display: none;
+    }
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .slider-container label {
+      min-width: 100px;
+      text-align: right;
+      font-size: 14px;
+    }
+    .slider-container input[type="range"] {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 8px;
+      background: #444; /* Dark gray track */
+      border-radius: 5px;
+      outline: none;
+    }
+    .slider-container input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      background: #666; /* Gray thumb */
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+    }
+    .slider-container input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      background: #666;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+    }
+    .slider-container span {
+      min-width: 50px;
+      text-align: left;
+    }
     /* Mobile-specific styles */
     @media (max-width: 768px) {
-      .param-table {
-        left: 50%;
-        transform: translateX(-50%);
-        width: 90%;
-        max-width: 300px;
-      }
       .controls-container {
-        flex-direction: column;
-        justify-content: flex-end;
+        display: none; /* Hide button controls on mobile */
       }
-      .controls-bottom-left, .controls-bottom-right {
-        position: relative;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        margin: 10px auto;
-        width: 90%;
-        max-width: 400px;
-        box-sizing: border-box;
+      .param-table {
+        display: none; /* Hide info table on mobile */
       }
-      .controls-bottom-right {
-        order: -1; /* Place this group above the left one */
+      .mobile-sliders {
+        display: flex; /* Show sliders on mobile */
       }
-      .controls-bottom-left, .controls-bottom-right {
-        grid-template-columns: repeat(2, 1fr);
-      }
-      .controls-bottom-right button {
-        min-width: unset;
-      }
+      button { font-size: 16px; padding: 12px; } /* Larger touch targets */
     }
   </style>
 </head>
@@ -183,12 +222,82 @@
     <button onclick="changeParam('colorShiftSpeed', 10)">Color Shift + [H]</button>
     <button onclick="changeParam('pulseMin', -0.1)">Pulse Min - [V]</button>
     <button onclick="changeParam('pulseMin', 0.1)">Pulse Min + [B]</button>
-    <button onclick="changeParam('minDist', -1)">Spacing - [[</button>
-    <button onclick="changeParam('minDist', 1)">Spacing + []]</button>
+    <button onclick="changeParam('minDist', -1)">Spacing - [</button>
+    <button onclick="changeParam('minDist', 1)">Spacing + ]</button>
     <button id="waveModeBtn" onclick="changeParam('waveMode', 0)" class="full-width-btn">Wave Mode - Both [M]</button>
     <button id="toggleBreathingBtn" onclick="toggleBreathing()" class="full-width-btn">Breathing - ON [P]</button>
     <button onclick="resetSettings()" class="full-width-btn">Reset - [⌫]</button>
     <button onclick="toggleUI()" class="full-width-btn">Hide UI - [`]</button>
+  </div>
+</div>
+
+<!-- Mobile sliders -->
+<div class="mobile-sliders hidden" id="mobile-sliders">
+  <div class="slider-container">
+    <label>Symmetry</label>
+    <input type="range" min="1" max="20" step="1" value="6" oninput="setParam('symmetry', this.value)">
+    <span id="sym-value">6</span>
+  </div>
+  <div class="slider-container">
+    <label>Size</label>
+    <input type="range" min="5" max="50" step="5" value="15" oninput="setParam('size', this.value)">
+    <span id="size-value">15</span>
+  </div>
+  <div class="slider-container">
+    <label>Anim Spd</label>
+    <input type="range" min="0.001" max="0.1" step="0.005" value="0.03" oninput="setParam('animSpeed', this.value)">
+    <span id="animSpeed-value">0.030</span>
+  </div>
+  <div class="slider-container">
+    <label>Wave Spd</label>
+    <input type="range" min="1" max="10" step="1" value="3" oninput="setParam('waveSpeed', this.value)">
+    <span id="waveSpeed-value">3</span>
+  </div>
+  <div class="slider-container">
+    <label>Breath Freq</label>
+    <input type="range" min="0.1" max="1" step="0.1" value="0.3" oninput="setParam('breathingFreq', this.value)">
+    <span id="breathingFreq-value">0.3</span>
+  </div>
+  <div class="slider-container">
+    <label>Wave Freq</label>
+    <input type="range" min="0.01" max="0.5" step="0.01" value="0.09" oninput="setParam('waveSpatialFreq', this.value)">
+    <span id="waveSpatialFreq-value">0.09</span>
+  </div>
+  <div class="slider-container">
+    <label>Breath Amp</label>
+    <input type="range" min="10" max="100" step="10" value="30" oninput="setParam('breathingAmp', this.value)">
+    <span id="breathingAmp-value">30</span>
+  </div>
+  <div class="slider-container">
+    <label>Color Shift</label>
+    <input type="range" min="10" max="100" step="10" value="50" oninput="setParam('colorShiftSpeed', this.value)">
+    <span id="colorShiftSpeed-value">50</span>
+  </div>
+  <div class="slider-container">
+    <label>Pulse Min</label>
+    <input type="range" min="0.1" max="0.9" step="0.1" value="0.2" oninput="setParam('pulseMin', this.value)">
+    <span id="pulseMin-value">0.2</span>
+  </div>
+  <div class="slider-container">
+    <label>Spacing</label>
+    <input type="range" min="1" max="10" step="1" value="1" oninput="setParam('minDist', this.value)">
+    <span id="minDist-value">1</span>
+  </div>
+  <!-- Buttons for toggles on mobile -->
+  <div class="slider-container">
+    <button onclick="changeParam('waveMode', 0)">Toggle Wave Mode</button>
+  </div>
+  <div class="slider-container">
+    <button onclick="toggleBreathing()">Toggle Breathing</button>
+  </div>
+  <div class="slider-container">
+    <button onclick="toggleNormalDraw()">Toggle Normal Draw</button>
+  </div>
+  <div class="slider-container">
+    <button onclick="resetSettings()">Reset</button>
+  </div>
+  <div class="slider-container">
+    <button onclick="toggleUI()">Hide/Show UI</button>
   </div>
 </div>
 
@@ -238,12 +347,15 @@ function showControls() {
   if (!isUIVisible) return;
   const controlsContainer = document.getElementById('controls-container');
   const paramTable = document.getElementById('param-table');
+  const mobileSliders = document.getElementById('mobile-sliders');
   controlsContainer.classList.remove('hidden');
   paramTable.classList.remove('hidden');
+  mobileSliders.classList.remove('hidden');
   clearTimeout(hideTimeout);
   hideTimeout = setTimeout(() => {
     controlsContainer.classList.add('hidden');
     paramTable.classList.add('hidden');
+    mobileSliders.classList.add('hidden');
   }, 3000);
 }
 document.addEventListener('mousemove', showControls);
@@ -253,15 +365,18 @@ document.addEventListener('touchstart', showControls);
 function toggleUI() {
   const controlsContainer = document.getElementById('controls-container');
   const paramTable = document.getElementById('param-table');
+  const mobileSliders = document.getElementById('mobile-sliders');
   isUIVisible = !isUIVisible;
   if (isUIVisible) {
     controlsContainer.classList.remove('hidden');
     paramTable.classList.remove('hidden');
+    mobileSliders.classList.remove('hidden');
     showControls(); // Start the auto-hide timer
   } else {
     clearTimeout(hideTimeout);
     controlsContainer.classList.add('hidden');
     paramTable.classList.add('hidden');
+    mobileSliders.classList.add('hidden');
   }
 }
 
@@ -297,7 +412,8 @@ function draw() {
   // Handle drawing for touch events
   if (isDrawing && touches.length > 0) {
     const touch = touches[0];
-    handleDraw(touch.x, touch.y, LEFT); // Treat a single touch as a left-click
+    const button = (touches.length >= 2) ? RIGHT : LEFT; // White drawing with two fingers
+    handleDraw(touch.x, touch.y, button);
   }
 
   translate(width / 2, height / 2);
@@ -397,6 +513,7 @@ function toggleNormalDraw() {
     numSymmetry = 1;
   }
   document.getElementById('sym').textContent = numSymmetry;
+  if (document.getElementById('sym-value')) document.getElementById('sym-value').textContent = numSymmetry;
   showControls();
 }
 
@@ -435,42 +552,52 @@ function changeParam(param, delta) {
         numSymmetry = Math.max(1, numSymmetry + delta);
       }
       document.getElementById('sym').textContent = numSymmetry;
+      if (document.getElementById('sym-value')) document.getElementById('sym-value').textContent = numSymmetry;
       break;
     case 'size':
       baseSize = Math.max(5, baseSize + delta);
       document.getElementById('size').textContent = baseSize;
+      if (document.getElementById('size-value')) document.getElementById('size-value').textContent = baseSize;
       break;
     case 'animSpeed':
       animSpeed = Math.max(0.001, animSpeed + delta);
       document.getElementById('animSpeed').textContent = animSpeed.toFixed(3);
+      if (document.getElementById('animSpeed-value')) document.getElementById('animSpeed-value').textContent = animSpeed.toFixed(3);
       break;
     case 'waveSpeed':
       waveSpeed = Math.max(1, waveSpeed + delta);
       document.getElementById('waveSpeed').textContent = waveSpeed.toFixed(0);
+      if (document.getElementById('waveSpeed-value')) document.getElementById('waveSpeed-value').textContent = waveSpeed.toFixed(0);
       break;
     case 'breathingFreq':
       breathingFreq = Math.max(0.1, breathingFreq + delta);
       document.getElementById('breathingFreq').textContent = breathingFreq.toFixed(1);
+      if (document.getElementById('breathingFreq-value')) document.getElementById('breathingFreq-value').textContent = breathingFreq.toFixed(1);
       break;
     case 'waveSpatialFreq':
       waveSpatialFreq = Math.max(0.01, waveSpatialFreq + delta);
       document.getElementById('waveSpatialFreq').textContent = waveSpatialFreq.toFixed(2);
+      if (document.getElementById('waveSpatialFreq-value')) document.getElementById('waveSpatialFreq-value').textContent = waveSpatialFreq.toFixed(2);
       break;
     case 'breathingAmp':
       breathingAmp = Math.max(10, breathingAmp + delta);
       document.getElementById('breathingAmp').textContent = breathingAmp.toFixed(0);
+      if (document.getElementById('breathingAmp-value')) document.getElementById('breathingAmp-value').textContent = breathingAmp.toFixed(0);
       break;
     case 'colorShiftSpeed':
       colorShiftSpeed = Math.max(10, colorShiftSpeed + delta);
       document.getElementById('colorShiftSpeed').textContent = colorShiftSpeed.toFixed(0);
+      if (document.getElementById('colorShiftSpeed-value')) document.getElementById('colorShiftSpeed-value').textContent = colorShiftSpeed.toFixed(0);
       break;
     case 'pulseMin':
       pulseMin = Math.min(0.9, Math.max(0.1, pulseMin + delta));
       document.getElementById('pulseMin').textContent = pulseMin.toFixed(1);
+      if (document.getElementById('pulseMin-value')) document.getElementById('pulseMin-value').textContent = pulseMin.toFixed(1);
       break;
     case 'minDist':
       minDist = Math.max(1, minDist + delta);
       document.getElementById('minDist').textContent = minDist.toFixed(0);
+      if (document.getElementById('minDist-value')) document.getElementById('minDist-value').textContent = minDist.toFixed(0);
       break;
     case 'waveMode':
       const modes = ['inward', 'outward', 'both'];
@@ -484,6 +611,45 @@ function changeParam(param, delta) {
       break;
   }
   showControls();
+}
+
+// New function for setting absolute values from sliders
+function setParam(param, value) {
+  value = parseFloat(value);
+  switch(param) {
+    case 'symmetry':
+      numSymmetry = Math.max(1, value);
+      break;
+    case 'size':
+      baseSize = Math.max(5, value);
+      break;
+    case 'animSpeed':
+      animSpeed = Math.max(0.001, value);
+      break;
+    case 'waveSpeed':
+      waveSpeed = Math.max(1, value);
+      break;
+    case 'breathingFreq':
+      breathingFreq = Math.max(0.1, value);
+      break;
+    case 'waveSpatialFreq':
+      waveSpatialFreq = Math.max(0.01, value);
+      break;
+    case 'breathingAmp':
+      breathingAmp = Math.max(10, value);
+      break;
+    case 'colorShiftSpeed':
+      colorShiftSpeed = Math.max(10, value);
+      break;
+    case 'pulseMin':
+      pulseMin = Math.min(0.9, Math.max(0.1, value));
+      break;
+    case 'minDist':
+      minDist = Math.max(1, value);
+      break;
+  }
+  updateParamTable();
+  document.getElementById(param + '-value').textContent = (param === 'animSpeed' ? value.toFixed(3) : (param === 'waveSpatialFreq' ? value.toFixed(2) : (param === 'breathingFreq' || param === 'pulseMin' ? value.toFixed(1) : Math.round(value))));
 }
 
 function resetSettings() {
@@ -509,6 +675,29 @@ function resetSettings() {
     waveModeBtn.textContent = `Wave Mode - ${waveMode.charAt(0).toUpperCase() + waveMode.slice(1)} [M]`;
   }
   updateParamTable();
+  // Reset slider values and spans if on mobile
+  if (document.getElementById('mobile-sliders')) {
+    document.querySelector('input[oninput="setParam(\'symmetry\', this.value)"]').value = numSymmetry;
+    document.querySelector('input[oninput="setParam(\'size\', this.value)"]').value = baseSize;
+    document.querySelector('input[oninput="setParam(\'animSpeed\', this.value)"]').value = animSpeed;
+    document.querySelector('input[oninput="setParam(\'waveSpeed\', this.value)"]').value = waveSpeed;
+    document.querySelector('input[oninput="setParam(\'breathingFreq\', this.value)"]').value = breathingFreq;
+    document.querySelector('input[oninput="setParam(\'waveSpatialFreq\', this.value)"]').value = waveSpatialFreq;
+    document.querySelector('input[oninput="setParam(\'breathingAmp\', this.value)"]').value = breathingAmp;
+    document.querySelector('input[oninput="setParam(\'colorShiftSpeed\', this.value)"]').value = colorShiftSpeed;
+    document.querySelector('input[oninput="setParam(\'pulseMin\', this.value)"]').value = pulseMin;
+    document.querySelector('input[oninput="setParam(\'minDist\', this.value)"]').value = minDist;
+    document.getElementById('sym-value').textContent = numSymmetry;
+    document.getElementById('size-value').textContent = baseSize;
+    document.getElementById('animSpeed-value').textContent = animSpeed.toFixed(3);
+    document.getElementById('waveSpeed-value').textContent = waveSpeed.toFixed(0);
+    document.getElementById('breathingFreq-value').textContent = breathingFreq.toFixed(1);
+    document.getElementById('waveSpatialFreq-value').textContent = waveSpatialFreq.toFixed(2);
+    document.getElementById('breathingAmp-value').textContent = breathingAmp.toFixed(0);
+    document.getElementById('colorShiftSpeed-value').textContent = colorShiftSpeed.toFixed(0);
+    document.getElementById('pulseMin-value').textContent = pulseMin.toFixed(1);
+    document.getElementById('minDist-value').textContent = minDist.toFixed(0);
+  }
   showControls();
 }
 
