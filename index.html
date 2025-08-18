@@ -16,6 +16,7 @@
     }
     canvas {
       display: block;
+      pointer-events: none;
     }
 
     /* =========================
@@ -220,22 +221,36 @@
 
 <div id="debug-message-box" class="debug-message-box" style="position:absolute; top:0; left:0; z-index:50; font-size:11px; padding:4px 6px; color:#9cf;"></div>
 
-<!-- Mobile: top-right “Sliders” button -->
-<button class="toggle-ui-btn" id="toggleBtn" onclick="toggleMobileUI()">Sliders</button>
-
-
-<!-- Copy-link button (top-left) -->
-<button class="toggle-ui-btn"
-        style="top:10px; left:10px; right:auto; z-index:99;"
-        onclick="navigator.clipboard.writeText(window.location.href.split('#')[0] + '#' + encodeURIComponent(JSON.stringify({
-          positions, numSymmetry, baseSize, animSpeed, waveSpeed, breathingFreq,
-          waveSpatialFreq, breathingAmp, colorShiftSpeed, pulseMin, breathingOn,
-          minDist, waveMode, hueVariationAmp, dynamicHue
-        }))).then(()=>{alert('Link copied!');})">
+<button
+    id="copyLinkBtn"
+    class="toggle-ui-btn"
+    style="top:10px; left:10px; right:auto;"
+    onclick="navigator.clipboard.writeText(window.location.href.split('#')[0] + '#' + encodeURIComponent(JSON.stringify({
+      positions, numSymmetry, baseSize, animSpeed, waveSpeed, breathingFreq,
+      waveSpatialFreq, breathingAmp, colorShiftSpeed, pulseMin, breathingOn,
+      minDist, waveMode, hueVariationAmp, dynamicHue
+    }))).then(()=>{alert('Link copied!');})">
   Copy Link
 </button>
 
-<!-- Desktop param table -->
+<button
+  id="toggleBtn"
+  class="toggle-ui-btn"
+  style="top:10px; left:50%; transform:translateX(-50%); right:auto;"
+  onclick="toggleMobileUI()">
+  Sliders
+</button>
+
+<button
+    id="fullscreenBtn"
+    class="toggle-ui-btn"
+    style="top:10px; right:10px; left:auto; padding:6px;"
+    onclick="toggleFullScreen()"
+    title="Full screen">
+  &#x26F6;
+</button>
+
+
 <div class="param-table hidden" id="param-table">
   <table>
     <tr><th>Sym</th><td id="sym">6</td></tr>
@@ -254,7 +269,6 @@
   </table>
 </div>
 
-<!-- Desktop controls -->
 <div class="controls-container hidden" id="controls-container">
   <div class="controls-bottom-left">
     <button onclick="changeParam('symmetry', -1)">Sym - [U]</button>
@@ -290,7 +304,6 @@
   </div>
 </div>
 
-<!-- MOBILE sliders (compact) -->
 <div class="mobile-sliders hidden" id="mobile-sliders">
   <div class="slider-container">
     <label>Symmetry</label>
@@ -992,15 +1005,23 @@ document.addEventListener('pointerdown', (e) => {
 }, { passive: true });
 
 // =========================
-// p5 touch event handlers (existing)
+// p5 touch event handlers (existing, with fix)
 // =========================
-function touchStarted() {
+function touchStarted(event) {
+  const tag = event.target.tagName.toLowerCase();
+  if (tag === 'button' || event.target.closest('.slider-container')) {
+    return true;
+  }
   if (touches.length === 0) return;
   const button = (touches.length >= 2) ? RIGHT : LEFT;
   handleDraw(touches[0].x, touches[0].y, button);
   return false;
 }
-function touchMoved() {
+function touchMoved(event) {
+  const tag = event.target.tagName.toLowerCase();
+  if (tag === 'button' || event.target.closest('.slider-container')) {
+    return true;
+  }
   if (touches.length === 0) return;
   const button = (touches.length >= 2) ? RIGHT : LEFT;
   handleDraw(touches[0].x, touches[0].y, button);
@@ -1020,6 +1041,32 @@ function toggleDynamicHue() {
   updateParamTable();
   redraw();
 }
+
+// =========================
+// Full-screen logic
+// =========================
+function toggleFullScreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  const desktopUI = document.getElementById('controls-container');
+  const paramTable = document.getElementById('param-table');
+  const mobileSliders = document.getElementById('mobile-sliders');
+
+  if (document.fullscreenElement) {
+    desktopUI.classList.add('hidden');
+    paramTable.classList.add('hidden');
+    mobileSliders.classList.add('hidden');
+  } else {
+    // When exiting fullscreen, the UI panels remain hidden.
+    // The user can re-engage them with the buttons.
+  }
+});
 </script>
 </body>
 </html>
