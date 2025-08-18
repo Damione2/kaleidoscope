@@ -16,6 +16,7 @@
     }
     canvas {
       display: block;
+      /* THIS IS THE CRUCIAL FIX: */
       pointer-events: none;
     }
 
@@ -113,7 +114,13 @@
     /* Small top-right toggle button (mobile only) */
     .toggle-ui-btn {
       position: absolute;
+      /* Top-middle Sliders button */
+      left: 50%;
+      transform: translateX(-50%);
       top: 10px;
+      /* Copy-link button (top-left) */
+      left: 10px;
+      /* Full-screen toggle (top-right) */
       right: 10px;
       padding: 6px 10px;
       background: rgba(0, 0, 0, 0.55);
@@ -234,10 +241,10 @@
 </button>
 
 <button
-  id="toggleBtn"
-  class="toggle-ui-btn"
-  style="top:10px; left:50%; transform:translateX(-50%); right:auto;"
-  onclick="toggleMobileUI()">
+    id="toggleBtn"
+    class="toggle-ui-btn"
+    style="top:10px; left:50%; transform:translateX(-50%); right:auto;"
+    onclick="toggleMobileUI()">
   Sliders
 </button>
 
@@ -1010,13 +1017,15 @@ document.addEventListener('pointerdown', (e) => {
 function touchStarted(event) {
   const tag = event.target.tagName.toLowerCase();
   if (tag === 'button' || event.target.closest('.slider-container')) {
-    return true;
+    return true; // allow the browser to fire the click
   }
+  // otherwise it’s a canvas touch:
   if (touches.length === 0) return;
   const button = (touches.length >= 2) ? RIGHT : LEFT;
   handleDraw(touches[0].x, touches[0].y, button);
   return false;
 }
+
 function touchMoved(event) {
   const tag = event.target.tagName.toLowerCase();
   if (tag === 'button' || event.target.closest('.slider-container')) {
