@@ -1014,31 +1014,30 @@ document.addEventListener('pointerdown', (e) => {
 // =========================
 // p5 touch event handlers (existing, with fix)
 // =========================
-function touchStarted(event) {
-  const tag = event.target.tagName.toLowerCase();
-  if (tag === 'button' || event.target.closest('.slider-container')) {
-    return true; // allow the browser to fire the click
-  }
-  // otherwise it’s a canvas touch:
+function touchStarted() {
   if (touches.length === 0) return;
+  const tag = (event.target && event.target.tagName) ? event.target.tagName.toLowerCase() : '';
+  if (tag === 'button' || tag === 'input') return true; // allow UI touches
+
   const button = (touches.length >= 2) ? RIGHT : LEFT;
   handleDraw(touches[0].x, touches[0].y, button);
   return false;
 }
 
-function touchMoved(event) {
-  const tag = event.target.tagName.toLowerCase();
-  if (tag === 'button' || event.target.closest('.slider-container')) {
-    return true;
-  }
+function touchMoved() {
   if (touches.length === 0) return;
+  const tag = (event.target && event.target.tagName) ? event.target.tagName.toLowerCase() : '';
+  if (tag === 'button' || tag === 'input') return true; // allow UI touches
+
   const button = (touches.length >= 2) ? RIGHT : LEFT;
   handleDraw(touches[0].x, touches[0].y, button);
   return false;
 }
+
 function touchEnded() {
-  return false;
+  return true; // let normal clicks work
 }
+
 
 // =========================
 // Hue toggles
