@@ -3,11 +3,7 @@
 <head>
   <title>Kaleidoscope Drawing</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="p5.min.js"></script>
-  <!-- 
-    The Tailwind CSS CDN is used here for simplicity in this self-contained single-file example.
-    As noted in the console warning, for a production environment, you should use the PostCSS plugin.
-  -->
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.4.0/lib/p5.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
@@ -34,7 +30,7 @@
       transition: opacity 0.5s;
       width: 150px;
     }
-    .param-table.hidden {
+    .param-table.hidden, .controls-container.hidden, .toggle-ui-btn.hidden {
       opacity: 0;
       pointer-events: none;
     }
@@ -53,10 +49,6 @@
     }
     .param-table td {
       background: rgba(0, 0, 0, 0.2);
-    }
-    .controls-container.hidden {
-      opacity: 0;
-      pointer-events: none;
     }
     .controls-container {
       position: absolute;
@@ -92,7 +84,7 @@
       grid-template-columns: repeat(2, 1fr);
       gap: 5px;
     }
-    .controls-bottom-left button, .controls-bottom-right button {
+    .controls-bottom-left button, .controls-bottom-right button, .mobile-sliders button, #play-pause-btn {
         padding: 8px 12px;
         background: transparent;
         color: #fff;
@@ -104,10 +96,9 @@
     .controls-bottom-right button {
       min-width: 150px;
     }
-    .controls-bottom-left .full-width-btn {
+    .controls-bottom-left .full-width-btn, .mobile-sliders .full-width-btn {
       grid-column: span 2;
     }
-    /* Mobile sliders */
     .mobile-sliders {
       position: absolute;
       bottom: 0;
@@ -121,6 +112,16 @@
       z-index: 10;
       overflow-y: auto;
       max-height: 50vh;
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+    }
+    @media (max-width: 768px) {
+      .controls-container, .param-table {
+        display: none;
+      }
+      .mobile-sliders {
+        display: flex;
+      }
     }
     .mobile-sliders.hidden {
       display: none;
@@ -140,7 +141,7 @@
       -webkit-appearance: none;
       appearance: none;
       height: 8px;
-      background: #444; /* Dark gray track */
+      background: #444;
       border-radius: 5px;
       outline: none;
     }
@@ -149,7 +150,7 @@
       appearance: none;
       width: 20px;
       height: 20px;
-      background: #666; /* Gray thumb */
+      background: #666;
       border-radius: 50%;
       cursor: pointer;
       box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
@@ -166,22 +167,48 @@
       min-width: 50px;
       text-align: left;
     }
-    /* Mobile-specific styles */
+    .toggle-ui-btn {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 8px 12px;
+        background: rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        color: #fff;
+        border-radius: 5px;
+        z-index: 10;
+        cursor: pointer;
+        font-size: 14px;
+        pointer-events: auto;
+    }
     @media (max-width: 768px) {
-      .controls-container {
-        display: none; /* Hide button controls on mobile */
-      }
-      .param-table {
-        display: none; /* Hide info table on mobile */
-      }
-      .mobile-sliders {
-        display: flex; /* Show sliders on mobile */
-      }
-      button { font-size: 16px; padding: 12px; } /* Larger touch targets */
+        .toggle-ui-btn {
+            bottom: 10px;
+            font-size: 16px;
+        }
+    }
+    .debug-message-box {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background-color: rgba(255, 255, 255, 0.8);
+        color: #000;
+        padding: 10px;
+        border-radius: 5px;
+        font-family: monospace;
+        z-index: 100;
+        max-width: 300px;
+        font-size: 12px;
+        pointer-events: none;
     }
   </style>
 </head>
 <body>
+
+<div id="debug-message-box" class="debug-message-box"></div>
+
+<button class="toggle-ui-btn" onclick="toggleMobileUI()">Toggle Sliders</button>
 
 <div class="param-table hidden" id="param-table">
   <table>
@@ -196,6 +223,8 @@
     <tr><th>Pulse Min</th><td id="pulseMin">0.2</td></tr>
     <tr><th>Spacing</th><td id="minDist">1</td></tr>
     <tr><th>Wave Mode</th><td id="waveMode">Both</td></tr>
+    <tr><th>Hue Var Amp</th><td id="hueVariationAmp">5</td></tr>
+    <tr><th>Dynamic Hue</th><td id="dynamicHue">ON</td></tr>
   </table>
 </div>
 
@@ -224,14 +253,16 @@
     <button onclick="changeParam('pulseMin', 0.1)">Pulse Min + [B]</button>
     <button onclick="changeParam('minDist', -1)">Spacing - [</button>
     <button onclick="changeParam('minDist', 1)">Spacing + ]</button>
-    <button id="waveModeBtn" onclick="changeParam('waveMode', 0)" class="full-width-btn">Wave Mode - Both [M]</button>
+    <button onclick="changeParam('hueVariationAmp', -1)">Hue Var - [N]</button>
+    <button onclick="changeParam('hueVariationAmp', 1)">Hue Var + [M]</button>
+    <button id="dynamicHueBtn" onclick="toggleDynamicHue()" class="full-width-btn">Dynamic Hue - ON [J]</button>
+    <button id="waveModeBtn" onclick="changeParam('waveMode', 0)" class="full-width-btn">Wave Mode - Both [O]</button>
     <button id="toggleBreathingBtn" onclick="toggleBreathing()" class="full-width-btn">Breathing - ON [P]</button>
     <button onclick="resetSettings()" class="full-width-btn">Reset - [⌫]</button>
-    <button onclick="toggleUI()" class="full-width-btn">Hide UI - [`]</button>
+    <button onclick="toggleDesktopUI()" class="full-width-btn">Hide UI - [`]</button>
   </div>
 </div>
 
-<!-- Mobile sliders -->
 <div class="mobile-sliders hidden" id="mobile-sliders">
   <div class="slider-container">
     <label>Symmetry</label>
@@ -283,21 +314,28 @@
     <input type="range" min="1" max="10" step="1" value="1" oninput="setParam('minDist', this.value)">
     <span id="minDist-value">1</span>
   </div>
-  <!-- Buttons for toggles on mobile -->
   <div class="slider-container">
-    <button onclick="changeParam('waveMode', 0)">Toggle Wave Mode</button>
+    <label>Hue Var Amp</label>
+    <input type="range" min="0" max="20" step="1" value="5" oninput="setParam('hueVariationAmp', this.value)">
+    <span id="hueVariationAmp-value">5</span>
   </div>
   <div class="slider-container">
-    <button onclick="toggleBreathing()">Toggle Breathing</button>
+    <button class="full-width-btn" onclick="toggleDynamicHue()">Toggle Dynamic Hue</button>
   </div>
   <div class="slider-container">
-    <button onclick="toggleNormalDraw()">Toggle Normal Draw</button>
+    <button class="full-width-btn" onclick="changeParam('waveMode', 0)">Toggle Wave Mode</button>
   </div>
   <div class="slider-container">
-    <button onclick="resetSettings()">Reset</button>
+    <button class="full-width-btn" onclick="toggleBreathing()">Toggle Breathing</button>
   </div>
   <div class="slider-container">
-    <button onclick="toggleUI()">Hide/Show UI</button>
+    <button class="full-width-btn" onclick="toggleNormalDraw()">Toggle Normal Draw</button>
+  </div>
+  <div class="slider-container">
+    <button class="full-width-btn" onclick="resetSettings()">Reset</button>
+  </div>
+  <div class="slider-container">
+    <button class="full-width-btn" onclick="toggleMobileUI()">Hide Sliders</button>
   </div>
 </div>
 
@@ -322,9 +360,11 @@ let pulseMin;
 let breathingOn;
 let lastSymmetry;
 let minDist;
-let isUIVisible = false; // Add a state variable for UI visibility
-let waveMode; // New global variable for wave direction
-let isDrawing = false; // New state to track drawing for touch events
+let isDesktopUIVisible = false;
+let isMobileUIVisible = false;
+let waveMode;
+let hueVariationAmp;
+let dynamicHue;
 
 // Default settings
 const defaultSettings = {
@@ -338,82 +378,179 @@ const defaultSettings = {
   baseSize: 15,
   animSpeed: 0.03,
   colorShiftSpeed: 50,
-  waveMode: 'both'
+  waveMode: 'both',
+  hueVariationAmp: 5,
+  dynamicHue: true,
+  nonGreenHues: [0, 30, 60, 200, 240, 300] // Red, orange, yellow, cyan, blue, purple
 };
 
-// Auto-hide controls
-let hideTimeout;
-function showControls() {
-  if (!isUIVisible) return;
-  const controlsContainer = document.getElementById('controls-container');
-  const paramTable = document.getElementById('param-table');
-  const mobileSliders = document.getElementById('mobile-sliders');
-  controlsContainer.classList.remove('hidden');
-  paramTable.classList.remove('hidden');
-  mobileSliders.classList.remove('hidden');
-  clearTimeout(hideTimeout);
-  hideTimeout = setTimeout(() => {
-    controlsContainer.classList.add('hidden');
-    paramTable.classList.add('hidden');
-    mobileSliders.classList.add('hidden');
-  }, 3000);
+function debugMessage(msg) {
+    const box = document.getElementById('debug-message-box');
+    if (box) {
+        box.textContent = msg;
+    }
 }
-document.addEventListener('mousemove', showControls);
-document.addEventListener('keydown', showControls);
-document.addEventListener('touchstart', showControls);
 
-function toggleUI() {
+// Toggle desktop UI, including the toggle-ui-btn on desktop
+function toggleDesktopUI() {
   const controlsContainer = document.getElementById('controls-container');
   const paramTable = document.getElementById('param-table');
-  const mobileSliders = document.getElementById('mobile-sliders');
-  isUIVisible = !isUIVisible;
-  if (isUIVisible) {
+  const toggleUIBtn = document.querySelector('.toggle-ui-btn');
+  isDesktopUIVisible = !isDesktopUIVisible;
+  if (isDesktopUIVisible) {
     controlsContainer.classList.remove('hidden');
     paramTable.classList.remove('hidden');
-    mobileSliders.classList.remove('hidden');
-    showControls(); // Start the auto-hide timer
+    if (window.innerWidth > 768) {
+      toggleUIBtn.classList.remove('hidden');
+    }
   } else {
-    clearTimeout(hideTimeout);
     controlsContainer.classList.add('hidden');
     paramTable.classList.add('hidden');
-    mobileSliders.classList.add('hidden');
-  }
-}
-
-// Load saved drawing
-const isSavedDrawing = window.location.hash.startsWith('#positions=');
-
-function setup() {
-  // NOTE: p5.js library warnings about deprecated sensors are external and cannot be removed here.
-  createCanvas(windowWidth, windowHeight);
-  colorMode(HSB, 360, 100, 100, 1);
-  background(0);
-  resetSettings();
-  toggleUI(); // Initial call to show controls
-
-  if (isSavedDrawing) {
-    try {
-      const positionsString = decodeURIComponent(window.location.hash.substring('#positions='.length));
-      positions = JSON.parse(positionsString);
-    } catch (e) {
-      console.error("Failed to parse drawing data from URL:", e);
-      positions = [];
+    if (window.innerWidth > 768) {
+      toggleUIBtn.classList.add('hidden');
     }
   }
 }
 
-function draw() {
+function toggleMobileUI() {
+  const mobileSliders = document.getElementById('mobile-sliders');
+  isMobileUIVisible = !isMobileUIVisible;
+  if (isMobileUIVisible) {
+    mobileSliders.classList.remove('hidden');
+  } else {
+    mobileSliders.classList.add('hidden');
+  }
+}
+
+// Toggle dynamic hue
+function toggleDynamicHue() {
+  dynamicHue = !dynamicHue;
+  const button = document.getElementById('dynamicHueBtn');
+  if (button) {
+    button.textContent = `Dynamic Hue - ${dynamicHue ? 'ON' : 'OFF'} [J]`;
+  }
+  updateParamTable();
+  redraw();
+}
+
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  colorMode(HSB, 360, 100, 100, 1);
   background(0);
 
-  if (mouseIsPressed) {
-    handleDraw(mouseX, mouseY, mouseButton);
+  // 1. Try to restore state from URL
+  const hash = window.location.hash.substring(1);
+  console.log('1. Checking for URL hash:', hash);
+  debugMessage('Checking URL...');
+  
+  let restored = false;
+  if (hash) {
+    try {
+      const state = JSON.parse(decodeURIComponent(hash));
+      console.log('2. Successfully parsed state from URL:', state);
+      
+      // Explicitly assign variables from the parsed state
+      if (state.positions) positions = state.positions;
+      if (state.numSymmetry !== undefined) numSymmetry = state.numSymmetry;
+      if (state.baseSize !== undefined) baseSize = state.baseSize;
+      if (state.animSpeed !== undefined) animSpeed = state.animSpeed;
+      if (state.waveSpeed !== undefined) waveSpeed = state.waveSpeed;
+      if (state.breathingFreq !== undefined) breathingFreq = state.breathingFreq;
+      if (state.waveSpatialFreq !== undefined) waveSpatialFreq = state.waveSpatialFreq;
+      if (state.breathingAmp !== undefined) breathingAmp = state.breathingAmp;
+      if (state.colorShiftSpeed !== undefined) colorShiftSpeed = state.colorShiftSpeed;
+      if (state.pulseMin !== undefined) pulseMin = state.pulseMin;
+      if (state.breathingOn !== undefined) breathingOn = state.breathingOn;
+      if (state.minDist !== undefined) minDist = state.minDist;
+      if (state.waveMode !== undefined) waveMode = state.waveMode;
+      if (state.hueVariationAmp !== undefined) hueVariationAmp = state.hueVariationAmp;
+      if (state.dynamicHue !== undefined) dynamicHue = state.dynamicHue;
+      
+      console.log('3. Variables explicitly assigned from URL state.');
+      restored = true;
+      debugMessage('State loaded from URL!');
+    } catch (e) {
+      console.error("4. Failed to parse state from URL:", e);
+      debugMessage('ERROR: Could not load state from URL.');
+    }
   }
 
-  // Handle drawing for touch events
-  if (isDrawing && touches.length > 0) {
-    const touch = touches[0];
-    const button = (touches.length >= 2) ? RIGHT : LEFT; // White drawing with two fingers
-    handleDraw(touch.x, touch.y, button);
+  // 5. Only reset if nothing was restored
+  if (!restored) {
+    console.log('5. No state restored from URL. Resetting to defaults.');
+    debugMessage('No saved state found. Starting new session.');
+    resetSettings();
+  }
+
+  // 6. Ensure all variables exist after potential restoration
+  numSymmetry ??= defaultSettings.numSymmetry;
+  waveSpeed ??= defaultSettings.waveSpeed;
+  breathingFreq ??= defaultSettings.breathingFreq;
+  breathingAmp ??= defaultSettings.breathingAmp;
+  waveSpatialFreq ??= defaultSettings.waveSpatialFreq;
+  pulseMin ??= defaultSettings.pulseMin;
+  minDist ??= defaultSettings.minDist;
+  baseSize ??= defaultSettings.baseSize;
+  animSpeed ??= defaultSettings.animSpeed;
+  colorShiftSpeed ??= defaultSettings.colorShiftSpeed;
+  breathingOn ??= true;
+  waveMode ??= defaultSettings.waveMode;
+  hueVariationAmp ??= defaultSettings.hueVariationAmp;
+  dynamicHue ??= defaultSettings.dynamicHue;
+  
+  // 7. Log the final state of variables
+  console.log('7. Final state of global variables:', {
+    numSymmetry,
+    waveSpeed,
+    breathingFreq,
+    breathingAmp,
+    waveSpatialFreq,
+    pulseMin,
+    minDist,
+    baseSize,
+    animSpeed,
+    colorShiftSpeed,
+    breathingOn,
+    waveMode,
+    hueVariationAmp,
+    dynamicHue,
+    positions: positions.length + ' points'
+  });
+
+  // Set button texts based on restored settings
+  const breathingBtn = document.getElementById('toggleBreathingBtn');
+  if (breathingBtn) {
+    breathingBtn.textContent = 'Breathing - ' + (breathingOn ? 'ON' : 'OFF') + ' [P]';
+  }
+  const waveModeBtn = document.getElementById('waveModeBtn');
+  if (waveModeBtn) {
+    waveModeBtn.textContent = `Wave Mode - ${waveMode.charAt(0).toUpperCase() + waveMode.slice(1)} [O]`;
+  }
+  const dynamicHueBtn = document.getElementById('dynamicHueBtn');
+  if (dynamicHueBtn) {
+    dynamicHueBtn.textContent = `Dynamic Hue - ${dynamicHue ? 'ON' : 'OFF'} [J]`;
+  }
+
+  updateParamTable();
+
+  if (window.innerWidth > 768) {
+    toggleDesktopUI();
+  } else {
+    toggleMobileUI();
+    const mobileUIBtn = document.querySelector('.toggle-ui-btn');
+    if (mobileUIBtn) mobileUIBtn.textContent = 'Hide Sliders';
+  }
+  
+  // Force an initial redraw to ensure the loaded state is rendered immediately
+  debugMessage('Loaded state. Forcing redraw...');
+  redraw();
+}
+
+function draw() {
+  background(0);
+  
+  if (mouseIsPressed) {
+    handleDraw(mouseX, mouseY, mouseButton);
   }
 
   translate(width / 2, height / 2);
@@ -456,9 +593,25 @@ function drawTetrahedronLine() {
       brightness = 70 + 30 * sin(time * 200 * animSpeed + i * 0.4);
       alpha = 0.5 + 0.4 * sin(time * 300 * animSpeed + i * 0.5);
     } else {
-      hue = (time * colorShiftSpeed + i * 10) % 360;
-      if (hue > 60 && hue < 180) {
-        hue = (hue < 120) ? 60 : 180;
+      const hues = defaultSettings.nonGreenHues; // [0, 30, 60, 200, 240, 300]
+      if (dynamicHue) {
+        // Dynamic cycling through non-green hues
+        let progress = ((time * colorShiftSpeed + i * 10) % 360) / 360;
+        let index = Math.floor(progress * hues.length);
+        let baseHue = hues[index % hues.length];
+        if (hueVariationAmp > 0) {
+          const variation = hueVariationAmp * sin(time * 100 * animSpeed + i * 0.5);
+          if (baseHue <= 75) {
+            hue = Math.max(0, Math.min(75, baseHue + variation));
+          } else {
+            hue = Math.max(165, Math.min(360, baseHue + variation));
+          }
+        } else {
+          hue = baseHue;
+        }
+      } else {
+        // Static: cycle through non-green hues based on point index
+        hue = hues[i % hues.length];
       }
       saturation = 100;
       brightness = 70 + 30 * sin(time * 200 * animSpeed + i * 0.4);
@@ -467,7 +620,6 @@ function drawTetrahedronLine() {
 
     brightness = brightness * pulseValue;
     let currentSize = baseSize * pulseValue;
-    hue = (hue + sin(time * 100 * animSpeed + i * 0.5) * 10) % 360;
 
     fill(hue, saturation, brightness, alpha);
     noStroke();
@@ -489,7 +641,7 @@ function getDistancePulse(x, y, time) {
     direction = 1;
   } else if (waveMode === 'outward') {
     direction = -1;
-  } else { // waveMode === 'both'
+  } else {
     direction = breathingOn ? sin(time * breathingFreq) : 1;
   }
   const pulse = sin(time * waveSpeed + d * waveSpatialFreq * direction);
@@ -502,7 +654,8 @@ function toggleBreathing() {
   if (button) {
     button.textContent = 'Breathing - ' + (breathingOn ? 'ON' : 'OFF') + ' [P]';
   }
-  showControls();
+  updateParamTable();
+  redraw();
 }
 
 function toggleNormalDraw() {
@@ -512,18 +665,41 @@ function toggleNormalDraw() {
     lastSymmetry = numSymmetry;
     numSymmetry = 1;
   }
-  document.getElementById('sym').textContent = numSymmetry;
-  if (document.getElementById('sym-value')) document.getElementById('sym-value').textContent = numSymmetry;
-  showControls();
+  updateParamTable();
+  redraw();
 }
 
 function saveToTextFile() {
-  const positionsStr = JSON.stringify(positions);
+  // Create a state object with all the current settings and drawing data
+  const state = {
+    positions,
+    numSymmetry,
+    baseSize,
+    animSpeed,
+    waveSpeed,
+    breathingFreq,
+    waveSpatialFreq,
+    breathingAmp,
+    colorShiftSpeed,
+    pulseMin,
+    breathingOn,
+    minDist,
+    waveMode,
+    hueVariationAmp,
+    dynamicHue
+  };
+
+  const stateStr = JSON.stringify(state);
   const now = new Date();
   const timestamp = now.toLocaleString();
-  const url = window.location.href.split('#')[0] + `#positions=${encodeURIComponent(positionsStr)}`;
-  const fileContent = `${timestamp}: ${url}`;
-  download(fileContent, 'kaleidoscope_save.txt', 'text/plain');
+  const url = window.location.href.split('#')[0] + `#${encodeURIComponent(stateStr)}`;
+  const fileContent = `
+  Date: ${timestamp}
+  URL: ${url}
+  
+  To load your session, copy the URL above and paste it into your browser.
+  `;
+  download(fileContent, 'kaleidoscope_session.txt', 'text/plain');
 }
 
 function download(data, filename, type) {
@@ -551,53 +727,33 @@ function changeParam(param, delta) {
       } else {
         numSymmetry = Math.max(1, numSymmetry + delta);
       }
-      document.getElementById('sym').textContent = numSymmetry;
-      if (document.getElementById('sym-value')) document.getElementById('sym-value').textContent = numSymmetry;
       break;
     case 'size':
       baseSize = Math.max(5, baseSize + delta);
-      document.getElementById('size').textContent = baseSize;
-      if (document.getElementById('size-value')) document.getElementById('size-value').textContent = baseSize;
       break;
     case 'animSpeed':
       animSpeed = Math.max(0.001, animSpeed + delta);
-      document.getElementById('animSpeed').textContent = animSpeed.toFixed(3);
-      if (document.getElementById('animSpeed-value')) document.getElementById('animSpeed-value').textContent = animSpeed.toFixed(3);
       break;
     case 'waveSpeed':
       waveSpeed = Math.max(1, waveSpeed + delta);
-      document.getElementById('waveSpeed').textContent = waveSpeed.toFixed(0);
-      if (document.getElementById('waveSpeed-value')) document.getElementById('waveSpeed-value').textContent = waveSpeed.toFixed(0);
       break;
     case 'breathingFreq':
       breathingFreq = Math.max(0.1, breathingFreq + delta);
-      document.getElementById('breathingFreq').textContent = breathingFreq.toFixed(1);
-      if (document.getElementById('breathingFreq-value')) document.getElementById('breathingFreq-value').textContent = breathingFreq.toFixed(1);
       break;
     case 'waveSpatialFreq':
       waveSpatialFreq = Math.max(0.01, waveSpatialFreq + delta);
-      document.getElementById('waveSpatialFreq').textContent = waveSpatialFreq.toFixed(2);
-      if (document.getElementById('waveSpatialFreq-value')) document.getElementById('waveSpatialFreq-value').textContent = waveSpatialFreq.toFixed(2);
       break;
     case 'breathingAmp':
       breathingAmp = Math.max(10, breathingAmp + delta);
-      document.getElementById('breathingAmp').textContent = breathingAmp.toFixed(0);
-      if (document.getElementById('breathingAmp-value')) document.getElementById('breathingAmp-value').textContent = breathingAmp.toFixed(0);
       break;
     case 'colorShiftSpeed':
       colorShiftSpeed = Math.max(10, colorShiftSpeed + delta);
-      document.getElementById('colorShiftSpeed').textContent = colorShiftSpeed.toFixed(0);
-      if (document.getElementById('colorShiftSpeed-value')) document.getElementById('colorShiftSpeed-value').textContent = colorShiftSpeed.toFixed(0);
       break;
     case 'pulseMin':
       pulseMin = Math.min(0.9, Math.max(0.1, pulseMin + delta));
-      document.getElementById('pulseMin').textContent = pulseMin.toFixed(1);
-      if (document.getElementById('pulseMin-value')) document.getElementById('pulseMin-value').textContent = pulseMin.toFixed(1);
       break;
     case 'minDist':
       minDist = Math.max(1, minDist + delta);
-      document.getElementById('minDist').textContent = minDist.toFixed(0);
-      if (document.getElementById('minDist-value')) document.getElementById('minDist-value').textContent = minDist.toFixed(0);
       break;
     case 'waveMode':
       const modes = ['inward', 'outward', 'both'];
@@ -605,15 +761,17 @@ function changeParam(param, delta) {
       waveMode = modes[(currentIndex + 1) % modes.length];
       const waveModeBtn = document.getElementById('waveModeBtn');
       if (waveModeBtn) {
-        waveModeBtn.textContent = `Wave Mode - ${waveMode.charAt(0).toUpperCase() + waveMode.slice(1)} [M]`;
+        waveModeBtn.textContent = `Wave Mode - ${waveMode.charAt(0).toUpperCase() + waveMode.slice(1)} [O]`;
       }
-      document.getElementById('waveMode').textContent = waveMode.charAt(0).toUpperCase() + waveMode.slice(1);
+      break;
+    case 'hueVariationAmp':
+      hueVariationAmp = Math.max(0, Math.min(20, hueVariationAmp + delta));
       break;
   }
-  showControls();
+  updateParamTable();
+  redraw();
 }
 
-// New function for setting absolute values from sliders
 function setParam(param, value) {
   value = parseFloat(value);
   switch(param) {
@@ -647,9 +805,16 @@ function setParam(param, value) {
     case 'minDist':
       minDist = Math.max(1, value);
       break;
+    case 'hueVariationAmp':
+      hueVariationAmp = Math.max(0, Math.min(20, value));
+      break;
   }
   updateParamTable();
-  document.getElementById(param + '-value').textContent = (param === 'animSpeed' ? value.toFixed(3) : (param === 'waveSpatialFreq' ? value.toFixed(2) : (param === 'breathingFreq' || param === 'pulseMin' ? value.toFixed(1) : Math.round(value))));
+  const valueSpan = document.getElementById(param + '-value');
+  if (valueSpan) {
+    valueSpan.textContent = (param === 'animSpeed' ? value.toFixed(3) : (param === 'waveSpatialFreq' ? value.toFixed(2) : (param === 'breathingFreq' || param === 'pulseMin' ? value.toFixed(1) : Math.round(value))));
+  }
+  redraw();
 }
 
 function resetSettings() {
@@ -665,6 +830,9 @@ function resetSettings() {
   colorShiftSpeed = defaultSettings.colorShiftSpeed;
   breathingOn = true;
   waveMode = defaultSettings.waveMode;
+  hueVariationAmp = defaultSettings.hueVariationAmp;
+  dynamicHue = defaultSettings.dynamicHue;
+  positions = []; // Also reset the drawing positions
   
   const breathingBtn = document.getElementById('toggleBreathingBtn');
   if (breathingBtn) {
@@ -672,36 +840,29 @@ function resetSettings() {
   }
   const waveModeBtn = document.getElementById('waveModeBtn');
   if (waveModeBtn) {
-    waveModeBtn.textContent = `Wave Mode - ${waveMode.charAt(0).toUpperCase() + waveMode.slice(1)} [M]`;
+    waveModeBtn.textContent = `Wave Mode - ${waveMode.charAt(0).toUpperCase() + waveMode.slice(1)} [O]`;
+  }
+  const dynamicHueBtn = document.getElementById('dynamicHueBtn');
+  if (dynamicHueBtn) {
+    dynamicHueBtn.textContent = `Dynamic Hue - ${dynamicHue ? 'ON' : 'OFF'} [J]`;
   }
   updateParamTable();
-  // Reset slider values and spans if on mobile
   if (document.getElementById('mobile-sliders')) {
-    document.querySelector('input[oninput="setParam(\'symmetry\', this.value)"]').value = numSymmetry;
-    document.querySelector('input[oninput="setParam(\'size\', this.value)"]').value = baseSize;
-    document.querySelector('input[oninput="setParam(\'animSpeed\', this.value)"]').value = animSpeed;
-    document.querySelector('input[oninput="setParam(\'waveSpeed\', this.value)"]').value = waveSpeed;
-    document.querySelector('input[oninput="setParam(\'breathingFreq\', this.value)"]').value = breathingFreq;
-    document.querySelector('input[oninput="setParam(\'waveSpatialFreq\', this.value)"]').value = waveSpatialFreq;
-    document.querySelector('input[oninput="setParam(\'breathingAmp\', this.value)"]').value = breathingAmp;
-    document.querySelector('input[oninput="setParam(\'colorShiftSpeed\', this.value)"]').value = colorShiftSpeed;
-    document.querySelector('input[oninput="setParam(\'pulseMin\', this.value)"]').value = pulseMin;
-    document.querySelector('input[oninput="setParam(\'minDist\', this.value)"]').value = minDist;
-    document.getElementById('sym-value').textContent = numSymmetry;
-    document.getElementById('size-value').textContent = baseSize;
-    document.getElementById('animSpeed-value').textContent = animSpeed.toFixed(3);
-    document.getElementById('waveSpeed-value').textContent = waveSpeed.toFixed(0);
-    document.getElementById('breathingFreq-value').textContent = breathingFreq.toFixed(1);
-    document.getElementById('waveSpatialFreq-value').textContent = waveSpatialFreq.toFixed(2);
-    document.getElementById('breathingAmp-value').textContent = breathingAmp.toFixed(0);
-    document.getElementById('colorShiftSpeed-value').textContent = colorShiftSpeed.toFixed(0);
-    document.getElementById('pulseMin-value').textContent = pulseMin.toFixed(1);
-    document.getElementById('minDist-value').textContent = minDist.toFixed(0);
+    const mobileSliders = document.getElementById('mobile-sliders');
+    mobileSliders.querySelectorAll('input[type="range"]').forEach(input => {
+      const param = input.getAttribute('oninput').match(/'(.*?)'/)[1];
+      input.value = defaultSettings[param];
+      const valueSpan = document.getElementById(param + '-value');
+      if (valueSpan) {
+        valueSpan.textContent = (param === 'animSpeed' ? input.value : parseFloat(input.value).toFixed(2));
+      }
+    });
   }
-  showControls();
+  redraw();
 }
 
 function updateParamTable() {
+  console.log('8. Updating UI parameter table.');
   const paramTable = document.getElementById('param-table');
   if (!paramTable) return;
 
@@ -716,9 +877,11 @@ function updateParamTable() {
   document.getElementById('pulseMin').textContent = pulseMin.toFixed(1);
   document.getElementById('minDist').textContent = minDist.toFixed(0);
   document.getElementById('waveMode').textContent = waveMode.charAt(0).toUpperCase() + waveMode.slice(1);
+  document.getElementById('hueVariationAmp').textContent = hueVariationAmp.toFixed(0);
+  document.getElementById('dynamicHue').textContent = dynamicHue ? 'ON' : 'OFF';
 }
 
-// 🎹 Keyboard shortcuts
+// Keyboard shortcuts
 document.addEventListener('keydown', (event) => {
   if (event.ctrlKey && event.key.toLowerCase() === 's') {
     event.preventDefault();
@@ -728,7 +891,6 @@ document.addEventListener('keydown', (event) => {
 
   if (event.key === 'Delete') {
     positions = [];
-    showControls();
     return;
   }
 
@@ -754,35 +916,35 @@ document.addEventListener('keydown', (event) => {
     case ']': changeParam('minDist', 1); break;
     case 'U': changeParam('symmetry', -1); break;
     case 'I': changeParam('symmetry', 1); break;
-    case 'K': toggleNormalDraw(); break;
+    case 'N': changeParam('hueVariationAmp', -1); break;
+    case 'M': changeParam('hueVariationAmp', 1); break;
+    case 'J': toggleDynamicHue(); break;
+    case 'O': changeParam('waveMode', 0); break;
     case 'P': toggleBreathing(); break;
-    case 'M': changeParam('waveMode', 0); break;
-  }
-  
-  // Backtick key to toggle UI
-  if (event.key === '`') {
-    toggleUI();
-  }
-
-  if (event.key === 'Backspace') {
-    resetSettings();
+    case '`': toggleDesktopUI(); break;
+    case 'BACKSPACE': resetSettings(); break;
   }
 });
 
 // Touch event handlers for mobile drawing
 function touchStarted() {
-  isDrawing = true;
-  return false; // Prevents default touch behavior (e.g., scrolling)
+  // Fix: Check if there are touch points before trying to access the array
+  if (touches.length === 0) return;
+  const button = (touches.length >= 2) ? RIGHT : LEFT;
+  handleDraw(touches[0].x, touches[0].y, button);
+  return false;
 }
 
 function touchMoved() {
-  // `draw()` loop handles adding positions when `isDrawing` is true
-  return false; // Prevents default touch behavior
+  // Fix: Check if there are touch points before trying to access the array
+  if (touches.length === 0) return;
+  const button = (touches.length >= 2) ? RIGHT : LEFT;
+  handleDraw(touches[0].x, touches[0].y, button);
+  return false;
 }
 
 function touchEnded() {
-  isDrawing = false;
-  return false; // Prevents default touch behavior
+  return false;
 }
 </script>
 </body>
