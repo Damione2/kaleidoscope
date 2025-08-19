@@ -111,28 +111,31 @@
        MOBILE UI
        ========================= */
 
-    /* Small top-right toggle button (mobile only) */
-    .toggle-ui-btn {
+    .top-ui-container {
       position: absolute;
-      /* Top-middle Sliders button */
-      left: 50%;
-      transform: translateX(-50%);
       top: 10px;
-      /* Copy-link button (top-left) */
-      left: 10px;
-      /* Full-screen toggle (top-right) */
-      right: 10px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 10px;
+      box-sizing: border-box;
+      z-index: 99; /* above everything */
+      pointer-events: none; /* allows events to pass to canvas */
+    }
+
+    .toggle-ui-btn {
+      pointer-events: auto; /* re-enables events for buttons */
       padding: 6px 10px;
       background: rgba(0, 0, 0, 0.55);
       border: 1px solid rgba(255, 255, 255, 0.5);
       color: #fff;
       border-radius: 6px;
-      z-index: 99; /* above everything */
       cursor: pointer;
       font-size: 12px;
       opacity: 0.9;
       transition: opacity 0.25s, transform 0.2s;
-      pointer-events: auto;
     }
     .toggle-ui-btn:active { transform: scale(0.98); }
     .toggle-ui-btn.hidden { display: none; }
@@ -211,6 +214,9 @@
         display: flex; /* will be overridden by .hidden when needed */
       }
       /* The toggle button exists only on mobile */
+      .top-ui-container {
+        display: flex;
+      }
       .toggle-ui-btn {
         display: block;
       }
@@ -218,7 +224,7 @@
 
     /* On desktop, never show the mobile toggle */
     @media (min-width: 769px) {
-      .toggle-ui-btn {
+      .top-ui-container, .toggle-ui-btn {
         display: none;
       }
     }
@@ -228,34 +234,32 @@
 
 <div id="debug-message-box" class="debug-message-box" style="position:absolute; top:0; left:0; z-index:50; font-size:11px; padding:4px 6px; color:#9cf;"></div>
 
-<button
-    id="copyLinkBtn"
-    class="toggle-ui-btn"
-    style="top:10px; left:10px; right:auto;"
-    onclick="navigator.clipboard.writeText(window.location.href.split('#')[0] + '#' + encodeURIComponent(JSON.stringify({
-      positions, numSymmetry, baseSize, animSpeed, waveSpeed, breathingFreq,
-      waveSpatialFreq, breathingAmp, colorShiftSpeed, pulseMin, breathingOn,
-      minDist, waveMode, hueVariationAmp, dynamicHue
-    }))).then(()=>{alert('Link copied!');})">
-  Copy Link
-</button>
+<div class="top-ui-container">
+  <button id="saveBtn" class="toggle-ui-btn" onclick="saveToTextFile()" title="Save Session">
+    &#x1F4BE;
+  </button>
 
-<button
-    id="toggleBtn"
-    class="toggle-ui-btn"
-    style="top:10px; left:50%; transform:translateX(-50%); right:auto;"
-    onclick="toggleMobileUI()">
-  Sliders
-</button>
+  <button id="toggleBtn" class="toggle-ui-btn" onclick="toggleMobileUI()">
+    Sliders
+  </button>
 
-<button
-    id="fullscreenBtn"
-    class="toggle-ui-btn"
-    style="top:10px; right:10px; left:auto; padding:6px;"
-    onclick="toggleFullScreen()"
-    title="Full screen">
-  &#x26F6;
-</button>
+  <button id="copyLinkBtn" class="toggle-ui-btn"
+          onclick="navigator.clipboard.writeText(window.location.href.split('#')[0] + '#' + encodeURIComponent(JSON.stringify({
+            positions, numSymmetry, baseSize, animSpeed, waveSpeed, breathingFreq,
+            waveSpatialFreq, breathingAmp, colorShiftSpeed, pulseMin, breathingOn,
+            minDist, waveMode, hueVariationAmp, dynamicHue
+          }))).then(()=>{alert('Link copied!');})">
+    Copy Link
+  </button>
+
+  <button
+      id="fullscreenBtn"
+      class="toggle-ui-btn"
+      onclick="toggleFullScreen()"
+      title="Full screen">
+    &#x26F6;
+  </button>
+</div>
 
 
 <div class="param-table hidden" id="param-table">
@@ -512,28 +516,25 @@ function toggleDesktopUI() {
 // =========================
 function toggleMobileUI() {
   const mobileSliders = document.getElementById('mobile-sliders');
-  const toggleBtn = document.getElementById('toggleBtn');
   isMobileUIVisible = !isMobileUIVisible;
   if (isMobileUIVisible) {
     mobileSliders.classList.remove('hidden');
   } else {
     mobileSliders.classList.add('hidden');
   }
-  // Button should be visible when user interacts
-  toggleBtn.classList.remove('hidden');
   resetHideUITimer();
 }
 
 function showMobileButton() {
-  const toggleBtn = document.getElementById('toggleBtn');
-  toggleBtn.classList.remove('hidden');
+  const topButtons = document.querySelectorAll('.top-ui-container .toggle-ui-btn');
+  topButtons.forEach(btn => btn.classList.remove('hidden'));
 }
 
 function hideMobileUICompletely() {
   const mobileSliders = document.getElementById('mobile-sliders');
-  const toggleBtn = document.getElementById('toggleBtn');
+  const topButtons = document.querySelectorAll('.top-ui-container .toggle-ui-btn');
   mobileSliders.classList.add('hidden');
-  toggleBtn.classList.add('hidden');
+  topButtons.forEach(btn => btn.classList.add('hidden'));
   isMobileUIVisible = false;
 }
 
@@ -1014,30 +1015,31 @@ document.addEventListener('pointerdown', (e) => {
 // =========================
 // p5 touch event handlers (existing, with fix)
 // =========================
-function touchStarted() {
+function touchStarted(event) {
+  const tag = event.target.tagName.toLowerCase();
+  if (tag === 'button' || event.target.closest('.slider-container')) {
+    return true; // allow the browser to fire the click
+  }
+  // otherwise it’s a canvas touch:
   if (touches.length === 0) return;
-  const tag = (event.target && event.target.tagName) ? event.target.tagName.toLowerCase() : '';
-  if (tag === 'button' || tag === 'input') return true; // allow UI touches
-
   const button = (touches.length >= 2) ? RIGHT : LEFT;
   handleDraw(touches[0].x, touches[0].y, button);
   return false;
 }
 
-function touchMoved() {
+function touchMoved(event) {
+  const tag = event.target.tagName.toLowerCase();
+  if (tag === 'button' || event.target.closest('.slider-container')) {
+    return true;
+  }
   if (touches.length === 0) return;
-  const tag = (event.target && event.target.tagName) ? event.target.tagName.toLowerCase() : '';
-  if (tag === 'button' || tag === 'input') return true; // allow UI touches
-
   const button = (touches.length >= 2) ? RIGHT : LEFT;
   handleDraw(touches[0].x, touches[0].y, button);
   return false;
 }
-
 function touchEnded() {
-  return true; // let normal clicks work
+  return false;
 }
-
 
 // =========================
 // Hue toggles
