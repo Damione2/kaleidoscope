@@ -204,6 +204,18 @@
       min-width: 44px;
       text-align: left;
     }
+    .mobile-buttons-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .mobile-buttons-container button {
+      flex: 1;
+      min-width: 120px;
+    }
 
     /* Hide desktop UI and show mobile button only on small screens */
     @media (max-width: 768px) {
@@ -235,17 +247,14 @@
 <div id="debug-message-box" class="debug-message-box" style="position:absolute; top:0; left:0; z-index:50; font-size:11px; padding:4px 6px; color:#9cf;"></div>
 
 <div class="top-ui-container">
-  <!-- Save button (top-left) -->
-  <button id="saveBtn" class="toggle-ui-btn" onclick="saveToTextFile()" title="Save Session">
+  <button id="saveBtn" class="toggle-ui-btn" onclick="saveToHtmlFile()" title="Save Session">
     &#x1F4BE;
   </button>
 
-  <!-- Mobile: top-middle “Sliders” button -->
   <button id="toggleBtn" class="toggle-ui-btn" onclick="toggleMobileUI()">
     Sliders
   </button>
 
-  <!-- Copy-link button (top-right) -->
   <button id="copyLinkBtn" class="toggle-ui-btn"
           onclick="navigator.clipboard.writeText(window.location.href.split('#')[0] + '#' + encodeURIComponent(JSON.stringify({
             positions, numSymmetry, baseSize, animSpeed, waveSpeed, breathingFreq,
@@ -255,7 +264,6 @@
     Copy Link
   </button>
 
-  <!-- Full-screen toggle (top-right icon only) -->
   <button
       id="fullscreenBtn"
       class="toggle-ui-btn"
@@ -266,7 +274,6 @@
 </div>
 
 
-<!-- Desktop param table -->
 <div class="param-table hidden" id="param-table">
   <table>
     <tr><th>Sym</th><td id="sym">6</td></tr>
@@ -285,7 +292,6 @@
   </table>
 </div>
 
-<!-- Desktop controls -->
 <div class="controls-container hidden" id="controls-container">
   <div class="controls-bottom-left">
     <button onclick="changeParam('symmetry', -1)">Sym - [U]</button>
@@ -321,7 +327,6 @@
   </div>
 </div>
 
-<!-- MOBILE sliders (compact) -->
 <div class="mobile-sliders hidden" id="mobile-sliders">
   <div class="slider-container">
     <label>Symmetry</label>
@@ -379,23 +384,14 @@
     <span id="hueVariationAmp-value">5</span>
   </div>
 
-  <div class="slider-container">
-    <button class="full-width-btn" onclick="toggleDynamicHue()">Toggle Dynamic Hue</button>
-  </div>
-  <div class="slider-container">
-    <button class="full-width-btn" onclick="changeParam('waveMode', 0)">Toggle Wave Mode</button>
-  </div>
-  <div class="slider-container">
-    <button class="full-width-btn" onclick="toggleBreathing()">Toggle Breathing</button>
-  </div>
-  <div class="slider-container">
-    <button class="full-width-btn" onclick="toggleNormalDraw()">Toggle Normal Draw</button>
-  </div>
-  <div class="slider-container">
-    <button class="full-width-btn" onclick="resetSettings()">Reset</button>
-  </div>
-  <div class="slider-container">
-    <button class="full-width-btn" onclick="toggleMobileUI()">Hide Sliders</button>
+  <div class="mobile-buttons-container">
+    <button onclick="toggleDynamicHue()">Toggle Dynamic Hue</button>
+    <button onclick="changeParam('waveMode', 0)">Toggle Wave Mode</button>
+    <button onclick="toggleBreathing()">Toggle Breathing</button>
+    <button onclick="toggleNormalDraw()">Toggle Normal Draw</button>
+    <button onclick="resetSettings()">Reset</button>
+    <button onclick="clearDrawing()">Del.</button>
+    <button onclick="toggleMobileUI()">Hide Sliders</button>
   </div>
 </div>
 
@@ -458,12 +454,12 @@ function debugMessage(msg) {
 document.addEventListener('keydown', (event) => {
   if (event.ctrlKey && event.key.toLowerCase() === 's') {
     event.preventDefault();
-    saveToTextFile();
+    saveToHtmlFile(); // This already calls the function that creates the timestamped filename
     return;
   }
 
   if (event.key === 'Delete') {
-    positions = [];
+    clearDrawing(); // Call new function
     return;
   }
 
@@ -776,7 +772,7 @@ function toggleNormalDraw() {
   redraw();
 }
 
-function saveToTextFile() {
+function saveToHtmlFile() {
   // Create a state object with all the current settings and drawing data
   const state = {
     positions,
@@ -798,15 +794,34 @@ function saveToTextFile() {
 
   const stateStr = JSON.stringify(state);
   const now = new Date();
-  const timestamp = now.toLocaleString();
+  const timestamp = now.getFullYear() + '-' +
+                    (now.getMonth() + 1).toString().padStart(2, '0') + '-' +
+                    now.getDate().toString().padStart(2, '0') + '-' +
+                    now.getHours().toString().padStart(2, '0') + '-' +
+                    now.getMinutes().toString().padStart(2, '0') + '-' +
+                    now.getSeconds().toString().padStart(2, '0');
   const url = window.location.href.split('#')[0] + `#${encodeURIComponent(stateStr)}`;
-  const fileContent = `
-Date: ${timestamp}
-URL: ${url}
+  const filename = `kaleidoscope-${timestamp}.html`;
+  
+  // Create a minimal HTML file content that redirects to the URL
+  const fileContent = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Kaleidoscope Drawing Session</title>
+  <meta http-equiv="refresh" content="0; url=${url}">
+  <style>
+    body { font-family: sans-serif; background-color: #111; color: #fff; text-align: center; padding-top: 50px; }
+    a { color: #88c0d4; }
+  </style>
+</head>
+<body>
+  <p>Loading your Kaleidoscope session...</p>
+  <p>If the page doesn't redirect, click this link: <a href="${url}">Load Session</a></p>
+</body>
+</html>`;
 
-To load your session, copy the URL above and paste it into your browser.
-  `;
-  download(fileContent, 'kaleidoscope_session.txt', 'text/plain');
+  download(fileContent, filename, 'text/html');
 }
 
 function download(data, filename, type) {
@@ -929,6 +944,11 @@ function setParam(param, value) {
   redraw();
 }
 
+function clearDrawing() {
+  positions = [];
+  redraw();
+}
+
 function resetSettings() {
   numSymmetry = defaultSettings.numSymmetry;
   waveSpeed = defaultSettings.waveSpeed;
@@ -944,7 +964,6 @@ function resetSettings() {
   waveMode = defaultSettings.waveMode;
   hueVariationAmp = defaultSettings.hueVariationAmp;
   dynamicHue = defaultSettings.dynamicHue;
-  positions = []; // Also reset the drawing positions
 
   const breathingBtn = document.getElementById('toggleBreathingBtn');
   if (breathingBtn) breathingBtn.textContent = 'Breathing - ON [P]';
