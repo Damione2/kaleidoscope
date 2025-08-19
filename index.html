@@ -1020,7 +1020,7 @@ document.addEventListener('pointerdown', (e) => {
 }, { passive: true });
 
 // =========================
-// p5 touch event handlers (existing, with fix)
+// p5 touch event handlers (FIXED)
 // =========================
 function touchStarted() {
   if (touches.length === 0) return;
@@ -1043,7 +1043,7 @@ function touchMoved() {
 }
 
 function touchEnded() {
-  return false;
+  return true; // let normal clicks work
 }
 
 // =========================
