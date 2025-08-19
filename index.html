@@ -205,8 +205,8 @@
       text-align: left;
     }
     .mobile-buttons-container {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 8px;
       margin-top: 10px;
       padding-top: 10px;
@@ -214,7 +214,24 @@
     }
     .mobile-buttons-container button {
       flex: 1;
-      min-width: 120px;
+      min-width: unset;
+      font-size: 12px;
+      padding: 6px 8px;
+      white-space: nowrap;
+    }
+
+    /* NEW: Mobile button color states for wave mode */
+    .mobile-buttons-container .is-on {
+      background: rgba(0, 255, 0, 0.2);
+    }
+    .mobile-buttons-container .wave-in {
+      background: rgba(255, 255, 0, 0.2);
+    }
+    .mobile-buttons-container .wave-out {
+      background: rgba(255, 0, 0, 0.2);
+    }
+    .mobile-buttons-container .wave-off {
+      background: transparent;
     }
 
     /* Hide desktop UI and show mobile button only on small screens */
@@ -247,14 +264,17 @@
 <div id="debug-message-box" class="debug-message-box" style="position:absolute; top:0; left:0; z-index:50; font-size:11px; padding:4px 6px; color:#9cf;"></div>
 
 <div class="top-ui-container">
+  <!-- Save button (top-left) -->
   <button id="saveBtn" class="toggle-ui-btn" onclick="saveToHtmlFile()" title="Save Session">
     &#x1F4BE;
   </button>
 
+  <!-- Mobile: top-middle “Sliders” button -->
   <button id="toggleBtn" class="toggle-ui-btn" onclick="toggleMobileUI()">
     Sliders
   </button>
 
+  <!-- Copy-link button (top-right) -->
   <button id="copyLinkBtn" class="toggle-ui-btn"
           onclick="navigator.clipboard.writeText(window.location.href.split('#')[0] + '#' + encodeURIComponent(JSON.stringify({
             positions, numSymmetry, baseSize, animSpeed, waveSpeed, breathingFreq,
@@ -264,6 +284,7 @@
     Copy Link
   </button>
 
+  <!-- Full-screen toggle (top-right icon only) -->
   <button
       id="fullscreenBtn"
       class="toggle-ui-btn"
@@ -274,6 +295,7 @@
 </div>
 
 
+<!-- Desktop param table -->
 <div class="param-table hidden" id="param-table">
   <table>
     <tr><th>Sym</th><td id="sym">6</td></tr>
@@ -292,6 +314,7 @@
   </table>
 </div>
 
+<!-- Desktop controls -->
 <div class="controls-container hidden" id="controls-container">
   <div class="controls-bottom-left">
     <button onclick="changeParam('symmetry', -1)">Sym - [U]</button>
@@ -327,6 +350,7 @@
   </div>
 </div>
 
+<!-- MOBILE sliders (compact) -->
 <div class="mobile-sliders hidden" id="mobile-sliders">
   <div class="slider-container">
     <label>Symmetry</label>
@@ -385,13 +409,13 @@
   </div>
 
   <div class="mobile-buttons-container">
-    <button onclick="toggleDynamicHue()">Toggle Dynamic Hue</button>
-    <button onclick="changeParam('waveMode', 0)">Toggle Wave Mode</button>
-    <button onclick="toggleBreathing()">Toggle Breathing</button>
-    <button onclick="toggleNormalDraw()">Toggle Normal Draw</button>
+    <button id="mobileNormalDrawBtn" onclick="toggleNormalDraw()">Normal</button>
+    <button id="mobileBreathingBtn" onclick="toggleBreathing()">Breathing</button>
+    <button id="mobileWaveModeBtn" onclick="changeParam('waveMode', 0)">Wave</button>
+    <button id="mobileDynamicHueBtn" onclick="toggleDynamicHue()">Dyn Hue</button>
     <button onclick="resetSettings()">Reset</button>
-    <button onclick="clearDrawing()">Del.</button>
-    <button onclick="toggleMobileUI()">Hide Sliders</button>
+    <button onclick="clearDrawing()">Delete</button>
+    <button onclick="toggleMobileUI()">Hide</button>
   </div>
 </div>
 
@@ -609,31 +633,10 @@ function setup() {
   dynamicHue ??= defaultSettings.dynamicHue;
 
   // Update desktop buttons from state
-  const breathingBtn = document.getElementById('toggleBreathingBtn');
-  if (breathingBtn) {
-    breathingBtn.textContent = 'Breathing - ' + (breathingOn ? 'ON' : 'OFF') + ' [P]';
-  }
-  const waveModeBtn = document.getElementById('waveModeBtn');
-  if (waveModeBtn) {
-    waveModeBtn.textContent = `Wave Mode - ${waveMode.charAt(0).toUpperCase() + waveMode.slice(1)} [O]`;
-  }
-  const dynamicHueBtn = document.getElementById('dynamicHueBtn');
-  if (dynamicHueBtn) {
-    dynamicHueBtn.textContent = `Dynamic Hue - ${dynamicHue ? 'ON' : 'OFF'} [J]`;
-  }
+  updateDesktopButtons();
 
-  updateParamTable();
-
-  // Desktop: show desktop UI
-  if (window.innerWidth > 768) {
-    toggleDesktopUI();
-  } else {
-    // Mobile: start with sliders hidden, show the button for a moment, then auto-hide
-    const mobileSliders = document.getElementById('mobile-sliders');
-    mobileSliders.classList.add('hidden');
-    showMobileButton();
-    resetHideUITimer();
-  }
+  // Update mobile buttons/sliders from state
+  updateMobileUI();
 
   // Initial redraw
   debugMessage('Loaded state. Forcing redraw...');
@@ -735,9 +738,16 @@ function drawTetrahedronLine() {
 }
 
 function getDistancePulse(x, y, time) {
+  // If wave mode is off, just return a fixed pulse value of 1.
+  if (waveMode === 'off') {
+    return 1;
+  }
+
+  // If breathing is off, return 1 as well.
   if (!breathingOn) {
     return 1;
   }
+  
   const d = dist(x, y, 0, 0);
   let direction;
   if (waveMode === 'inward') {
@@ -753,11 +763,9 @@ function getDistancePulse(x, y, time) {
 
 function toggleBreathing() {
   breathingOn = !breathingOn;
-  const button = document.getElementById('toggleBreathingBtn');
-  if (button) {
-    button.textContent = 'Breathing - ' + (breathingOn ? 'ON' : 'OFF') + ' [P]';
-  }
   updateParamTable();
+  updateDesktopButtons();
+  updateMobileUI();
   redraw();
 }
 
@@ -769,6 +777,8 @@ function toggleNormalDraw() {
     numSymmetry = 1;
   }
   updateParamTable();
+  updateDesktopButtons();
+  updateMobileUI();
   redraw();
 }
 
@@ -878,19 +888,18 @@ function changeParam(param, delta) {
       minDist = Math.max(1, minDist + delta);
       break;
     case 'waveMode':
-      const modes = ['inward', 'outward', 'both'];
+      // Updated wave modes to include 'off'
+      const modes = ['both', 'inward', 'outward', 'off'];
       const currentIndex = modes.indexOf(waveMode);
       waveMode = modes[(currentIndex + 1) % modes.length];
-      const waveModeBtn = document.getElementById('waveModeBtn');
-      if (waveModeBtn) {
-        waveModeBtn.textContent = `Wave Mode - ${waveMode.charAt(0).toUpperCase() + waveMode.slice(1)} [O]`;
-      }
       break;
     case 'hueVariationAmp':
       hueVariationAmp = Math.max(0, Math.min(20, hueVariationAmp + delta));
       break;
   }
   updateParamTable();
+  updateDesktopButtons();
+  updateMobileUI();
   redraw();
 }
 
@@ -932,15 +941,7 @@ function setParam(param, value) {
       break;
   }
   updateParamTable();
-  // Update mobile readout spans
-  const valueSpanId = (param === 'symmetry') ? 'symmetry-value' : (param + '-value');
-  const valueSpan = document.getElementById(valueSpanId);
-  if (valueSpan) {
-    if (param === 'animSpeed') valueSpan.textContent = value.toFixed(3);
-    else if (param === 'waveSpatialFreq') valueSpan.textContent = value.toFixed(2);
-    else if (param === 'breathingFreq' || param === 'pulseMin') valueSpan.textContent = value.toFixed(1);
-    else valueSpan.textContent = Math.round(value);
-  }
+  updateMobileUI(); // Sync mobile UI after setting param
   redraw();
 }
 
@@ -965,35 +966,10 @@ function resetSettings() {
   hueVariationAmp = defaultSettings.hueVariationAmp;
   dynamicHue = defaultSettings.dynamicHue;
 
-  const breathingBtn = document.getElementById('toggleBreathingBtn');
-  if (breathingBtn) breathingBtn.textContent = 'Breathing - ON [P]';
-  const waveModeBtn = document.getElementById('waveModeBtn');
-  if (waveModeBtn) waveModeBtn.textContent = `Wave Mode - ${waveMode.charAt(0).toUpperCase() + waveMode.slice(1)} [O]`;
-  const dynamicHueBtn = document.getElementById('dynamicHueBtn');
-  if (dynamicHueBtn) dynamicHueBtn.textContent = `Dynamic Hue - ${dynamicHue ? 'ON' : 'OFF'} [J]`;
-
+  // Sync all UIs to the new default state
   updateParamTable();
-
-  // Sync mobile sliders to defaults if present
-  const mobileSliders = document.getElementById('mobile-sliders');
-  if (mobileSliders) {
-    mobileSliders.querySelectorAll('input[type="range"]').forEach(input => {
-      const oninputAttr = input.getAttribute('oninput');
-      const match = oninputAttr && oninputAttr.match(/'(.*?)'/);
-      if (!match) return;
-      const param = match[1];
-      const val = defaultSettings[param] ?? input.value;
-      input.value = val;
-      const spanId = (param === 'symmetry') ? 'symmetry-value' : (param + '-value');
-      const valueSpan = document.getElementById(spanId);
-      if (valueSpan) {
-        if (param === 'animSpeed') valueSpan.textContent = parseFloat(val).toFixed(3);
-        else if (param === 'waveSpatialFreq') valueSpan.textContent = parseFloat(val).toFixed(2);
-        else if (param === 'breathingFreq' || param === 'pulseMin') valueSpan.textContent = parseFloat(val).toFixed(1);
-        else valueSpan.textContent = Math.round(val);
-      }
-    });
-  }
+  updateDesktopButtons();
+  updateMobileUI();
 
   redraw();
 }
@@ -1015,6 +991,113 @@ function updateParamTable() {
   document.getElementById('waveMode').textContent = waveMode.charAt(0).toUpperCase() + waveMode.slice(1);
   document.getElementById('hueVariationAmp').textContent = hueVariationAmp.toFixed(0);
   document.getElementById('dynamicHue').textContent = dynamicHue ? 'ON' : 'OFF';
+}
+
+function updateDesktopButtons() {
+  const breathingBtn = document.getElementById('toggleBreathingBtn');
+  if (breathingBtn) {
+    breathingBtn.textContent = 'Breathing - ' + (breathingOn ? 'ON' : 'OFF') + ' [P]';
+  }
+  const waveModeBtn = document.getElementById('waveModeBtn');
+  if (waveModeBtn) {
+    waveModeBtn.textContent = `Wave Mode - ${waveMode.charAt(0).toUpperCase() + waveMode.slice(1)} [O]`;
+  }
+  const dynamicHueBtn = document.getElementById('dynamicHueBtn');
+  if (dynamicHueBtn) {
+    dynamicHueBtn.textContent = `Dynamic Hue - ${dynamicHue ? 'ON' : 'OFF'} [J]`;
+  }
+}
+
+function updateMobileUI() {
+  const mobileSliders = document.getElementById('mobile-sliders');
+  if (!mobileSliders) return;
+
+  // Sync sliders to current values
+  const sliders = {
+    'symmetry': numSymmetry,
+    'size': baseSize,
+    'animSpeed': animSpeed,
+    'waveSpeed': waveSpeed,
+    'breathingFreq': breathingFreq,
+    'waveSpatialFreq': waveSpatialFreq,
+    'breathingAmp': breathingAmp,
+    'colorShiftSpeed': colorShiftSpeed,
+    'pulseMin': pulseMin,
+    'minDist': minDist,
+    'hueVariationAmp': hueVariationAmp,
+  };
+
+  for (const param in sliders) {
+    const input = mobileSliders.querySelector(`input[oninput*="'${param}'"]`);
+    const span = document.getElementById(`${param}-value`);
+    if (input) {
+      input.value = sliders[param];
+    }
+    if (span) {
+      if (param === 'animSpeed') span.textContent = sliders[param].toFixed(3);
+      else if (param === 'waveSpatialFreq') span.textContent = sliders[param].toFixed(2);
+      else if (param === 'breathingFreq' || param === 'pulseMin') span.textContent = sliders[param].toFixed(1);
+      else span.textContent = Math.round(sliders[param]);
+    }
+  }
+
+  // Sync button state
+  const mobileNormalBtn = document.getElementById('mobileNormalDrawBtn');
+  const mobileBreathingBtn = document.getElementById('mobileBreathingBtn');
+  const mobileWaveModeBtn = document.getElementById('mobileWaveModeBtn');
+  const mobileDynamicHueBtn = document.getElementById('mobileDynamicHueBtn');
+
+  if (mobileNormalBtn) {
+    if (numSymmetry === 1) {
+      mobileNormalBtn.classList.add('is-on');
+    } else {
+      mobileNormalBtn.classList.remove('is-on');
+    }
+  }
+
+  if (mobileBreathingBtn) {
+    if (breathingOn) {
+      mobileBreathingBtn.classList.add('is-on');
+    } else {
+      mobileBreathingBtn.classList.remove('is-on');
+    }
+  }
+
+  // NEW: Update mobile wave mode button text and color
+  if (mobileWaveModeBtn) {
+    mobileWaveModeBtn.textContent = `Wave ${waveMode.charAt(0).toUpperCase() + waveMode.slice(1)}`;
+    mobileWaveModeBtn.classList.remove('is-on', 'wave-in', 'wave-out', 'wave-off');
+    switch (waveMode) {
+      case 'both':
+        mobileWaveModeBtn.classList.add('is-on');
+        break;
+      case 'inward':
+        mobileWaveModeBtn.classList.add('wave-in');
+        break;
+      case 'outward':
+        mobileWaveModeBtn.classList.add('wave-out');
+        break;
+      case 'off':
+        mobileWaveModeBtn.classList.add('wave-off');
+        break;
+    }
+  }
+
+  if (mobileDynamicHueBtn) {
+    if (dynamicHue) {
+      mobileDynamicHueBtn.classList.add('is-on');
+    } else {
+      mobileDynamicHueBtn.classList.remove('is-on');
+    }
+  }
+}
+
+function toggleDynamicHue() {
+  dynamicHue = !dynamicHue;
+  updateParamTable();
+  updateDesktopButtons();
+  updateMobileUI();
+  redraw();
 }
 
 // =========================
@@ -1079,17 +1162,6 @@ function touchEnded() {
 }
 
 // =========================
-// Hue toggles
-// =========================
-function toggleDynamicHue() {
-  dynamicHue = !dynamicHue;
-  const button = document.getElementById('dynamicHueBtn');
-  if (button) button.textContent = `Dynamic Hue - ${dynamicHue ? 'ON' : 'OFF'} [J]`;
-  updateParamTable();
-  redraw();
-}
-
-// =========================
 // Full-screen logic
 // =========================
 function toggleFullScreen() {
@@ -1114,6 +1186,19 @@ document.addEventListener('fullscreenchange', () => {
     // The user can re-engage them with the buttons.
   }
 });
+
+// Initial call to sync UI
+window.onload = function() {
+  setup();
+  if (window.innerWidth > 768) {
+    toggleDesktopUI();
+  } else {
+    const mobileSliders = document.getElementById('mobile-sliders');
+    mobileSliders.classList.add('hidden');
+    showMobileButton();
+    resetHideUITimer();
+  }
+};
 </script>
 </body>
 </html>
