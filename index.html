@@ -647,7 +647,8 @@ function setup() {
 function draw() {
   background(0);
 
-  if (mouseIsPressed) {
+  // NEW: Check if the mouse is over a UI element before drawing
+  if (mouseIsPressed && !isUIElementUnderMouse()) {
     handleDraw(mouseX, mouseY, mouseButton);
   }
 
@@ -669,6 +670,14 @@ function draw() {
   }
 
   time += animSpeed;
+}
+
+// NEW HELPER: Checks if the mouse is currently over a UI element
+function isUIElementUnderMouse() {
+  const el = document.elementFromPoint(mouseX, mouseY);
+  if (!el) return false;
+  const tag = el.tagName.toLowerCase();
+  return tag === 'button' || tag === 'input' || el.closest('.controls-container') || el.closest('.mobile-sliders') || el.closest('.param-table');
 }
 
 function handleDraw(x, y, button) {
@@ -1020,13 +1029,15 @@ document.addEventListener('pointerdown', (e) => {
 }, { passive: true });
 
 // =========================
-// p5 touch event handlers (FIXED)
+// p5 touch event handlers (FIXED AGAIN)
 // =========================
 function touchStarted() {
   if (touches.length === 0) return;
-  const tag = (event.target && event.target.tagName) ? event.target.tagName.toLowerCase() : '';
-  if (tag === 'button' || tag === 'input') return true; // allow UI touches
-
+  // NEW: Check for UI element at touch point
+  const el = document.elementFromPoint(touches[0].x, touches[0].y);
+  if (el && (el.tagName.toLowerCase() === 'input' || el.tagName.toLowerCase() === 'button' || el.closest('.mobile-sliders'))) {
+    return true; // allow UI interaction, don’t draw
+  }
   const button = (touches.length >= 2) ? RIGHT : LEFT;
   handleDraw(touches[0].x, touches[0].y, button);
   return false;
@@ -1034,9 +1045,11 @@ function touchStarted() {
 
 function touchMoved() {
   if (touches.length === 0) return;
-  const tag = (event.target && event.target.tagName) ? event.target.tagName.toLowerCase() : '';
-  if (tag === 'button' || tag === 'input') return true; // allow UI touches
-
+  // NEW: Check for UI element at touch point
+  const el = document.elementFromPoint(touches[0].x, touches[0].y);
+  if (el && (el.tagName.toLowerCase() === 'input' || el.tagName.toLowerCase() === 'button' || el.closest('.mobile-sliders'))) {
+    return true;
+  }
   const button = (touches.length >= 2) ? RIGHT : LEFT;
   handleDraw(touches[0].x, touches[0].y, button);
   return false;
