@@ -28,13 +28,13 @@
       top: 20px;
       left: 20px;
       background: rgba(0, 0, 0, 0.3);
-      padding: 10px;
+      padding: 8px; /* Adjusted padding */
       border-radius: 5px;
-      font-size: 10px;
+      font-size: 10px; /* Adjusted font size */
       z-index: 10;
       border: 1px solid rgba(255, 255, 255, 0.2);
       transition: opacity 0.5s;
-      width: 120px;
+      width: 120px; /* Adjusted width */
     }
     .param-table.hidden, .controls-container.hidden {
       opacity: 0;
@@ -279,7 +279,7 @@
           onclick="navigator.clipboard.writeText(window.location.href.split('#')[0] + '#' + encodeURIComponent(JSON.stringify({
             positions, numSymmetry, baseSize, animSpeed, waveSpeed, breathingFreq,
             waveSpatialFreq, breathingAmp, colorShiftSpeed, pulseMin, breathingOn,
-            minDist, waveMode, hueVariationAmp, dynamicHue
+            minDist, waveMode, hueVariationAmp, dynamicHue, sbsMode
           }))).then(()=>{alert('Link copied!');})">
     Copy Link
   </button>
@@ -311,6 +311,7 @@
     <tr><th>Wave Mode</th><td id="waveMode">Both</td></tr>
     <tr><th>Hue Var Amp</th><td id="hueVariationAmp">5</td></tr>
     <tr><th>Dynamic Hue</th><td id="dynamicHue">ON</td></tr>
+    <tr><th>SBS Mode</th><td id="sbsMode">OFF</td></tr>
   </table>
 </div>
 
@@ -345,6 +346,7 @@
     <button id="dynamicHueBtn" onclick="toggleDynamicHue()" class="full-width-btn">Dynamic Hue - ON [J]</button>
     <button id="waveModeBtn" onclick="changeParam('waveMode', 0)" class="full-width-btn">Wave Mode - Both [O]</button>
     <button id="toggleBreathingBtn" onclick="toggleBreathing()" class="full-width-btn">Breathing - ON [P]}</button>
+    <button id="sbsModeBtn" onclick="toggleSBSMode()" class="full-width-btn">SBS Mode - OFF [L]}</button>
     <button onclick="resetSettings()" class="full-width-btn">Reset - [⌫]</button>
     <button onclick="toggleDesktopUI()" class="full-width-btn">Hide UI - [`]</button>
   </div>
@@ -413,6 +415,7 @@
     <button id="mobileBreathingBtn" onclick="toggleBreathing()">Breathing</button>
     <button id="mobileWaveModeBtn" onclick="changeParam('waveMode', 0)">Wave</button>
     <button id="mobileDynamicHueBtn" onclick="toggleDynamicHue()">Dyn Hue</button>
+    <button id="mobileSbsBtn" onclick="toggleSBSMode()">SBS Mode</button>
     <button onclick="resetSettings()">Reset</button>
     <button onclick="clearDrawing()">Delete</button>
   </div>
@@ -446,6 +449,7 @@ let isMobileUIVisible = false;
 let waveMode;
 let hueVariationAmp;
 let dynamicHue;
+let sbsMode;
 
 // Mobile auto-hide timer
 let hideUITimer = null;
@@ -465,6 +469,8 @@ const defaultSettings = {
   waveMode: 'both',
   hueVariationAmp: 5,
   dynamicHue: true,
+  // === THIS IS THE CHANGE: Set sbsMode to false by default ===
+  sbsMode: false,
   nonGreenHues: [0, 30, 60, 200, 240, 300] // Red, orange, yellow, cyan, blue, purple
 };
 
@@ -513,6 +519,7 @@ document.addEventListener('keydown', (event) => {
     case 'J': toggleDynamicHue(); break;
     case 'O': changeParam('waveMode', 0); break;
     case 'P': toggleBreathing(); break;
+    case 'L': toggleSBSMode(); break;
     case '`':
       toggleDesktopUI();
       toggleMobileUI();
@@ -601,6 +608,7 @@ function setup() {
       if (state.waveMode !== undefined) waveMode = state.waveMode;
       if (state.hueVariationAmp !== undefined) hueVariationAmp = state.hueVariationAmp;
       if (state.dynamicHue !== undefined) dynamicHue = state.dynamicHue;
+      if (state.sbsMode !== undefined) sbsMode = state.sbsMode;
       restored = true;
       debugMessage('State loaded from URL!');
     } catch (e) {
@@ -630,6 +638,7 @@ function setup() {
   waveMode ??= defaultSettings.waveMode;
   hueVariationAmp ??= defaultSettings.hueVariationAmp;
   dynamicHue ??= defaultSettings.dynamicHue;
+  sbsMode ??= defaultSettings.sbsMode;
 
   // Update desktop buttons from state
   updateDesktopButtons();
@@ -645,13 +654,58 @@ function setup() {
 function draw() {
   background(0);
 
-  // NEW: Check if the mouse is over a UI element before drawing
-  if (mouseIsPressed && !isUIElementUnderMouse()) {
-    handleDraw(mouseX, mouseY, mouseButton);
+  // === THIS IS THE CHANGE: Invert the drawing logic. ===
+  // If sbsMode is FALSE, draw a single, centered canvas.
+  // If sbsMode is TRUE, draw two side-by-side canvases.
+  if (!sbsMode) {
+    // Single panel mode: center the drawing
+    push();
+    translate(width / 2, height / 2);
+    renderKaleidoscope();
+    pop();
+  } else {
+    // Side-by-side mode: draw two panels
+    let halfWidth = width / 2;
+    push();
+    translate(halfWidth / 2, height / 2);
+    renderKaleidoscope();
+    pop();
+
+    push();
+    translate(halfWidth + halfWidth / 2, height / 2);
+    renderKaleidoscope();
+    pop();
   }
 
-  translate(width / 2, height / 2);
+  time += animSpeed;
+}
 
+function handleDraw(x, y, button) {
+  let currentX, currentY;
+
+  // === THIS IS THE CHANGE: Invert the drawing logic for user input. ===
+  // If sbsMode is FALSE, map input to the entire canvas.
+  // If sbsMode is TRUE, only allow drawing on the left half.
+  if (!sbsMode) {
+    // Single panel mode: map input to entire canvas
+    currentX = x - width / 2;
+    currentY = y - height / 2;
+  } else {
+    // Side-by-side mode: only allow drawing on the left half
+    let halfWidth = width / 2;
+    if (x > halfWidth) return;
+    currentX = x - halfWidth / 2;
+    currentY = y - height / 2;
+  }
+
+  if (positions.length === 0 ||
+      dist(currentX, currentY, positions[positions.length - 1][0], positions[positions.length - 1][1]) > minDist) {
+    positions.push([currentX, currentY, button]);
+  }
+}
+
+// Extract your existing kaleidoscope loop into a helper
+function renderKaleidoscope() {
   for (let i = 0; i < numSymmetry; i++) {
     push();
     rotate(TWO_PI * i / numSymmetry);
@@ -666,8 +720,6 @@ function draw() {
       pop();
     }
   }
-
-  time += animSpeed;
 }
 
 // NEW HELPER: Checks if the mouse is currently over a UI element
@@ -676,14 +728,6 @@ function isUIElementUnderMouse() {
   if (!el) return false;
   const tag = el.tagName.toLowerCase();
   return tag === 'button' || tag === 'input' || el.closest('.controls-container') || el.closest('.mobile-sliders') || el.closest('.param-table');
-}
-
-function handleDraw(x, y, button) {
-  let currentX = x - width / 2;
-  let currentY = y - height / 2;
-  if (positions.length === 0 || dist(currentX, currentY, positions[positions.length - 1][0], positions[positions.length - 1][1]) > minDist) {
-    positions.push([currentX, currentY, button]);
-  }
 }
 
 function drawTetrahedronLine() {
@@ -746,7 +790,7 @@ function getDistancePulse(x, y, time) {
   if (!breathingOn) {
     return 1;
   }
-  
+
   const d = dist(x, y, 0, 0);
   let direction;
   if (waveMode === 'inward') {
@@ -781,6 +825,14 @@ function toggleNormalDraw() {
   redraw();
 }
 
+function toggleSBSMode() {
+  sbsMode = !sbsMode;
+  updateParamTable();
+  updateDesktopButtons();
+  updateMobileUI();
+  redraw();
+}
+
 function saveToHtmlFile() {
   // Create a state object with all the current settings and drawing data
   const state = {
@@ -798,7 +850,8 @@ function saveToHtmlFile() {
     minDist,
     waveMode,
     hueVariationAmp,
-    dynamicHue
+    dynamicHue,
+    sbsMode
   };
 
   const stateStr = JSON.stringify(state);
@@ -811,7 +864,7 @@ function saveToHtmlFile() {
                     now.getSeconds().toString().padStart(2, '0');
   const url = window.location.href.split('#')[0] + `#${encodeURIComponent(stateStr)}`;
   const filename = `kaleidoscope-${timestamp}.html`;
-  
+
   // Create a minimal HTML file content that redirects to the URL
   const fileContent = `<!DOCTYPE html>
 <html>
@@ -964,6 +1017,7 @@ function resetSettings() {
   waveMode = defaultSettings.waveMode;
   hueVariationAmp = defaultSettings.hueVariationAmp;
   dynamicHue = defaultSettings.dynamicHue;
+  sbsMode = defaultSettings.sbsMode;
 
   // Sync all UIs to the new default state
   updateParamTable();
@@ -990,6 +1044,7 @@ function updateParamTable() {
   document.getElementById('waveMode').textContent = waveMode.charAt(0).toUpperCase() + waveMode.slice(1);
   document.getElementById('hueVariationAmp').textContent = hueVariationAmp.toFixed(0);
   document.getElementById('dynamicHue').textContent = dynamicHue ? 'ON' : 'OFF';
+  document.getElementById('sbsMode').textContent = sbsMode ? 'ON' : 'OFF';
 }
 
 function updateDesktopButtons() {
@@ -1004,6 +1059,10 @@ function updateDesktopButtons() {
   const dynamicHueBtn = document.getElementById('dynamicHueBtn');
   if (dynamicHueBtn) {
     dynamicHueBtn.textContent = `Dynamic Hue - ${dynamicHue ? 'ON' : 'OFF'} [J]`;
+  }
+  const sbsModeBtn = document.getElementById('sbsModeBtn');
+  if (sbsModeBtn) {
+    sbsModeBtn.textContent = `SBS Mode - ${sbsMode ? 'ON' : 'OFF'} [L]`;
   }
 }
 
@@ -1045,6 +1104,7 @@ function updateMobileUI() {
   const mobileBreathingBtn = document.getElementById('mobileBreathingBtn');
   const mobileWaveModeBtn = document.getElementById('mobileWaveModeBtn');
   const mobileDynamicHueBtn = document.getElementById('mobileDynamicHueBtn');
+  const mobileSbsBtn = document.getElementById('mobileSbsBtn');
 
   if (mobileNormalBtn) {
     if (numSymmetry === 1) {
@@ -1087,6 +1147,15 @@ function updateMobileUI() {
       mobileDynamicHueBtn.classList.add('is-on');
     } else {
       mobileDynamicHueBtn.classList.remove('is-on');
+    }
+  }
+  
+  if (mobileSbsBtn) {
+    mobileSbsBtn.textContent = `SBS ${sbsMode ? 'ON' : 'OFF'}`;
+    if (sbsMode) {
+      mobileSbsBtn.classList.add('is-on');
+    } else {
+      mobileSbsBtn.classList.remove('is-on');
     }
   }
 }
@@ -1160,6 +1229,28 @@ function touchEnded() {
   return true; // let normal clicks work
 }
 
+
+// =========================
+// p5 mouse event handlers (RE-ADDED)
+// =========================
+function mousePressed() {
+  // Prevent drawing if the mouse is over a UI element
+  if (isUIElementUnderMouse()) {
+    return true;
+  }
+  handleDraw(mouseX, mouseY, mouseButton);
+  return false; // Prevent default browser behavior
+}
+
+function mouseDragged() {
+  if (isUIElementUnderMouse()) {
+    return true;
+  }
+  handleDraw(mouseX, mouseY, mouseButton);
+  return false;
+}
+
+
 // =========================
 // Full-screen logic
 // =========================
@@ -1201,4 +1292,3 @@ window.onload = function() {
 </script>
 </body>
 </html>
-
