@@ -279,7 +279,7 @@
           onclick="navigator.clipboard.writeText(window.location.href.split('#')[0] + '#' + encodeURIComponent(JSON.stringify({
             positions, numSymmetry, baseSize, animSpeed, waveSpeed, breathingFreq,
             waveSpatialFreq, breathingAmp, colorShiftSpeed, pulseMin, breathingOn,
-            minDist, waveMode, hueVariationAmp, dynamicHue, sbsMode
+            minDist, waveMode, hueVariationAmp, dynamicHue, sbsMode, sbsDistance, zoom
           }))).then(()=>{alert('Link copied!');})">
     Copy Link
   </button>
@@ -296,7 +296,7 @@
 
 
 <!-- Desktop param table -->
-<div class="param-table hidden" id="param-table">
+<div class="param-table" id="param-table">
   <table>
     <tr><th>Sym</th><td id="sym">6</td></tr>
     <tr><th>Size</th><td id="size">15</td></tr>
@@ -312,11 +312,13 @@
     <tr><th>Hue Var Amp</th><td id="hueVariationAmp">5</td></tr>
     <tr><th>Dynamic Hue</th><td id="dynamicHue">ON</td></tr>
     <tr><th>SBS Mode</th><td id="sbsMode">OFF</td></tr>
+    <tr><th>SBS Distance</th><td id="sbsDistance">0</td></tr>
+    <tr><th>Zoom</th><td id="zoom">1.00</td></tr>
   </table>
 </div>
 
 <!-- Desktop controls -->
-<div class="controls-container hidden" id="controls-container">
+<div class="controls-container" id="controls-container">
   <div class="controls-bottom-left">
     <button onclick="changeParam('symmetry', -1)">Sym - [U]</button>
     <button onclick="changeParam('symmetry', 1)">Sym + [I]</button>
@@ -343,6 +345,10 @@
     <button onclick="changeParam('minDist', 1)">Spacing + ]</button>
     <button onclick="changeParam('hueVariationAmp', -1)">Hue Var - [N]</button>
     <button onclick="changeParam('hueVariationAmp', 1)">Hue Var + [M]</button>
+    <button onclick="changeParam('sbsDistance', -10)">SBS Dist -</button>
+    <button onclick="changeParam('sbsDistance', 10)">SBS Dist +</button>
+    <button onclick="changeParam('zoom', -0.1)">Zoom -</button>
+    <button onclick="changeParam('zoom', 0.1)">Zoom +</button>
     <button id="dynamicHueBtn" onclick="toggleDynamicHue()" class="full-width-btn">Dynamic Hue - ON [J]</button>
     <button id="waveModeBtn" onclick="changeParam('waveMode', 0)" class="full-width-btn">Wave Mode - Both [O]</button>
     <button id="toggleBreathingBtn" onclick="toggleBreathing()" class="full-width-btn">Breathing - ON [P]}</button>
@@ -409,6 +415,16 @@
     <input type="range" min="0" max="20" step="1" value="5" oninput="setParam('hueVariationAmp', this.value)">
     <span id="hueVariationAmp-value">5</span>
   </div>
+  <div class="slider-container">
+    <label>SBS Dist</label>
+    <input type="range" min="-300" max="300" step="10" value="0" oninput="setParam('sbsDistance', this.value)">
+    <span id="sbsDistance-value">0</span>
+  </div>
+  <div class="slider-container">
+    <label>Zoom</label>
+    <input type="range" min="0.1" max="5.0" step="0.1" value="1.0" oninput="setParam('zoom', this.value)">
+    <span id="zoom-value">1.0</span>
+  </div>
 
   <div class="mobile-buttons-container">
     <button id="mobileNormalDrawBtn" onclick="toggleNormalDraw()">Normal</button>
@@ -444,12 +460,14 @@ let pulseMin;
 let breathingOn;
 let lastSymmetry;
 let minDist;
-let isDesktopUIVisible = false;
+let isDesktopUIVisible = true; // NEW: Default to true
 let isMobileUIVisible = false;
 let waveMode;
 let hueVariationAmp;
 let dynamicHue;
 let sbsMode;
+let sbsDistance;
+let zoom;
 
 // Mobile auto-hide timer
 let hideUITimer = null;
@@ -469,8 +487,9 @@ const defaultSettings = {
   waveMode: 'both',
   hueVariationAmp: 5,
   dynamicHue: true,
-  // === THIS IS THE CHANGE: Set sbsMode to false by default ===
-  sbsMode: false,
+  sbsMode: false, // NEW: Default to false
+  sbsDistance: 0,
+  zoom: 1.0,
   nonGreenHues: [0, 30, 60, 200, 240, 300] // Red, orange, yellow, cyan, blue, purple
 };
 
@@ -609,6 +628,8 @@ function setup() {
       if (state.hueVariationAmp !== undefined) hueVariationAmp = state.hueVariationAmp;
       if (state.dynamicHue !== undefined) dynamicHue = state.dynamicHue;
       if (state.sbsMode !== undefined) sbsMode = state.sbsMode;
+      if (state.sbsDistance !== undefined) sbsDistance = state.sbsDistance;
+      if (state.zoom !== undefined) zoom = state.zoom;
       restored = true;
       debugMessage('State loaded from URL!');
     } catch (e) {
@@ -639,11 +660,12 @@ function setup() {
   hueVariationAmp ??= defaultSettings.hueVariationAmp;
   dynamicHue ??= defaultSettings.dynamicHue;
   sbsMode ??= defaultSettings.sbsMode;
+  sbsDistance ??= defaultSettings.sbsDistance;
+  zoom ??= defaultSettings.zoom;
 
-  // Update desktop buttons from state
+  // 4. Update ALL UI elements to reflect the loaded state.
+  updateParamTable();
   updateDesktopButtons();
-
-  // Update mobile buttons/sliders from state
   updateMobileUI();
 
   // Initial redraw
@@ -654,25 +676,26 @@ function setup() {
 function draw() {
   background(0);
 
-  // === THIS IS THE CHANGE: Invert the drawing logic. ===
-  // If sbsMode is FALSE, draw a single, centered canvas.
-  // If sbsMode is TRUE, draw two side-by-side canvases.
-  if (!sbsMode) {
-    // Single panel mode: center the drawing
-    push();
-    translate(width / 2, height / 2);
-    renderKaleidoscope();
-    pop();
-  } else {
-    // Side-by-side mode: draw two panels
+  // Corrected logic: if sbsMode is true, render side-by-side. Otherwise, render single.
+  if (sbsMode) {
+    // Side-by-side mode: draw two panels with adjustable distance
     let halfWidth = width / 2;
     push();
-    translate(halfWidth / 2, height / 2);
+    translate(halfWidth / 2 - sbsDistance / 2, height / 2);
+    scale(zoom);
     renderKaleidoscope();
     pop();
 
     push();
-    translate(halfWidth + halfWidth / 2, height / 2);
+    translate(halfWidth + halfWidth / 2 + sbsDistance / 2, height / 2);
+    scale(zoom);
+    renderKaleidoscope();
+    pop();
+  } else {
+    // Single panel mode: center the drawing
+    push();
+    translate(width / 2, height / 2);
+    scale(zoom);
     renderKaleidoscope();
     pop();
   }
@@ -683,19 +706,17 @@ function draw() {
 function handleDraw(x, y, button) {
   let currentX, currentY;
 
-  // === THIS IS THE CHANGE: Invert the drawing logic for user input. ===
-  // If sbsMode is FALSE, map input to the entire canvas.
-  // If sbsMode is TRUE, only allow drawing on the left half.
-  if (!sbsMode) {
-    // Single panel mode: map input to entire canvas
-    currentX = x - width / 2;
-    currentY = y - height / 2;
-  } else {
+  // Corrected logic: if sbsMode is true, handle SBS drawing. Otherwise, handle single.
+  if (sbsMode) {
     // Side-by-side mode: only allow drawing on the left half
     let halfWidth = width / 2;
     if (x > halfWidth) return;
-    currentX = x - halfWidth / 2;
-    currentY = y - height / 2;
+    currentX = (x - (halfWidth / 2 - sbsDistance / 2)) / zoom;
+    currentY = (y - height / 2) / zoom;
+  } else {
+    // Single panel mode: map input to entire canvas, accounting for zoom
+    currentX = (x - width / 2) / zoom;
+    currentY = (y - height / 2) / zoom;
   }
 
   if (positions.length === 0 ||
@@ -851,7 +872,9 @@ function saveToHtmlFile() {
     waveMode,
     hueVariationAmp,
     dynamicHue,
-    sbsMode
+    sbsMode,
+    sbsDistance,
+    zoom
   };
 
   const stateStr = JSON.stringify(state);
@@ -948,6 +971,12 @@ function changeParam(param, delta) {
     case 'hueVariationAmp':
       hueVariationAmp = Math.max(0, Math.min(20, hueVariationAmp + delta));
       break;
+    case 'sbsDistance':
+      sbsDistance += delta;
+      break;
+    case 'zoom':
+      zoom = Math.max(0.1, zoom + delta);
+      break;
   }
   updateParamTable();
   updateDesktopButtons();
@@ -991,6 +1020,12 @@ function setParam(param, value) {
     case 'hueVariationAmp':
       hueVariationAmp = Math.max(0, Math.min(20, value));
       break;
+    case 'sbsDistance':
+      sbsDistance = value;
+      break;
+    case 'zoom':
+      zoom = Math.max(0.1, value);
+      break;
   }
   updateParamTable();
   updateMobileUI(); // Sync mobile UI after setting param
@@ -1018,6 +1053,8 @@ function resetSettings() {
   hueVariationAmp = defaultSettings.hueVariationAmp;
   dynamicHue = defaultSettings.dynamicHue;
   sbsMode = defaultSettings.sbsMode;
+  sbsDistance = defaultSettings.sbsDistance;
+  zoom = defaultSettings.zoom;
 
   // Sync all UIs to the new default state
   updateParamTable();
@@ -1045,6 +1082,8 @@ function updateParamTable() {
   document.getElementById('hueVariationAmp').textContent = hueVariationAmp.toFixed(0);
   document.getElementById('dynamicHue').textContent = dynamicHue ? 'ON' : 'OFF';
   document.getElementById('sbsMode').textContent = sbsMode ? 'ON' : 'OFF';
+  document.getElementById('sbsDistance').textContent = sbsDistance.toFixed(0);
+  document.getElementById('zoom').textContent = zoom.toFixed(2);
 }
 
 function updateDesktopButtons() {
@@ -1083,6 +1122,8 @@ function updateMobileUI() {
     'pulseMin': pulseMin,
     'minDist': minDist,
     'hueVariationAmp': hueVariationAmp,
+    'sbsDistance': sbsDistance,
+    'zoom': zoom,
   };
 
   for (const param in sliders) {
@@ -1093,7 +1134,7 @@ function updateMobileUI() {
     }
     if (span) {
       if (param === 'animSpeed') span.textContent = sliders[param].toFixed(3);
-      else if (param === 'waveSpatialFreq') span.textContent = sliders[param].toFixed(2);
+      else if (param === 'waveSpatialFreq' || param === 'zoom') span.textContent = sliders[param].toFixed(2);
       else if (param === 'breathingFreq' || param === 'pulseMin') span.textContent = sliders[param].toFixed(1);
       else span.textContent = Math.round(sliders[param]);
     }
@@ -1281,7 +1322,9 @@ document.addEventListener('fullscreenchange', () => {
 window.onload = function() {
   setup();
   if (window.innerWidth > 768) {
-    toggleDesktopUI();
+    // Ensure desktop UI is visible on large screens
+    document.getElementById('controls-container').classList.remove('hidden');
+    document.getElementById('param-table').classList.remove('hidden');
   } else {
     const mobileSliders = document.getElementById('mobile-sliders');
     mobileSliders.classList.add('hidden');
