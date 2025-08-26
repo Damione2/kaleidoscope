@@ -264,27 +264,24 @@
 <div id="debug-message-box" class="debug-message-box" style="position:absolute; top:0; left:0; z-index:50; font-size:11px; padding:4px 6px; color:#9cf;"></div>
 
 <div class="top-ui-container">
-  <!-- Save button (top-left) -->
   <button id="saveBtn" class="toggle-ui-btn" onclick="saveToHtmlFile()" title="Save Session">
     &#x1F4BE;
   </button>
 
-  <!-- Mobile: top-middle “Sliders” button -->
   <button id="toggleBtn" class="toggle-ui-btn" onclick="toggleMobileUI()">
     Sliders
   </button>
 
-  <!-- Copy-link button (top-right) -->
   <button id="copyLinkBtn" class="toggle-ui-btn"
           onclick="navigator.clipboard.writeText(window.location.href.split('#')[0] + '#' + encodeURIComponent(JSON.stringify({
             positions, numSymmetry, baseSize, animSpeed, waveSpeed, breathingFreq,
             waveSpatialFreq, breathingAmp, colorShiftSpeed, pulseMin, breathingOn,
-            minDist, waveMode, hueVariationAmp, dynamicHue, sbsMode, sbsDistance, zoom
+            minDist, waveMode, hueVariationAmp, dynamicHue, sbsMode, sbsDistance, zoom,
+            sunsetMode, overexposureThreshold
           }))).then(()=>{alert('Link copied!');})">
     Copy Link
   </button>
 
-  <!-- Full-screen toggle (top-right icon only) -->
   <button
       id="fullscreenBtn"
       class="toggle-ui-btn"
@@ -295,7 +292,6 @@
 </div>
 
 
-<!-- Desktop param table -->
 <div class="param-table" id="param-table">
   <table>
     <tr><th>Sym</th><td id="sym">6</td></tr>
@@ -314,10 +310,11 @@
     <tr><th>SBS Mode</th><td id="sbsMode">OFF</td></tr>
     <tr><th>SBS Distance</th><td id="sbsDistance">0</td></tr>
     <tr><th>Zoom</th><td id="zoom">1.00</td></tr>
+    <tr><th>Sunset Mode</th><td id="sunsetMode">OFF</td></tr>
+    <tr><th>Overexp Thresh</th><td id="overexposureThreshold">0.90</td></tr>
   </table>
 </div>
 
-<!-- Desktop controls -->
 <div class="controls-container" id="controls-container">
   <div class="controls-bottom-left">
     <button onclick="changeParam('symmetry', -1)">Sym - [U]</button>
@@ -349,16 +346,18 @@
     <button onclick="changeParam('sbsDistance', 10)">SBS Dist +</button>
     <button onclick="changeParam('zoom', -0.1)">Zoom -</button>
     <button onclick="changeParam('zoom', 0.1)">Zoom +</button>
+    <button onclick="changeParam('overexposureThreshold', -0.05)">Overexp Thresh -</button>
+    <button onclick="changeParam('overexposureThreshold', 0.05)">Overexp Thresh +</button>
     <button id="dynamicHueBtn" onclick="toggleDynamicHue()" class="full-width-btn">Dynamic Hue - ON [J]</button>
     <button id="waveModeBtn" onclick="changeParam('waveMode', 0)" class="full-width-btn">Wave Mode - Both [O]</button>
     <button id="toggleBreathingBtn" onclick="toggleBreathing()" class="full-width-btn">Breathing - ON [P]}</button>
     <button id="sbsModeBtn" onclick="toggleSBSMode()" class="full-width-btn">SBS Mode - OFF [L]}</button>
+    <button id="sunsetModeBtn" onclick="toggleSunsetMode()" class="full-width-btn">Sunset Mode - OFF</button>
     <button onclick="resetSettings()" class="full-width-btn">Reset - [⌫]</button>
     <button onclick="toggleDesktopUI()" class="full-width-btn">Hide UI - [`]</button>
   </div>
 </div>
 
-<!-- MOBILE sliders (compact) -->
 <div class="mobile-sliders hidden" id="mobile-sliders">
   <div class="slider-container">
     <label>Symmetry</label>
@@ -425,6 +424,11 @@
     <input type="range" min="0.1" max="5.0" step="0.1" value="1.0" oninput="setParam('zoom', this.value)">
     <span id="zoom-value">1.0</span>
   </div>
+  <div class="slider-container">
+    <label>Overexp Thresh</label>
+    <input type="range" min="0.1" max="1.0" step="0.05" value="0.9" oninput="setParam('overexposureThreshold', this.value)">
+    <span id="overexposureThreshold-value">0.90</span>
+  </div>
 
   <div class="mobile-buttons-container">
     <button id="mobileNormalDrawBtn" onclick="toggleNormalDraw()">Normal</button>
@@ -432,6 +436,7 @@
     <button id="mobileWaveModeBtn" onclick="changeParam('waveMode', 0)">Wave</button>
     <button id="mobileDynamicHueBtn" onclick="toggleDynamicHue()">Dyn Hue</button>
     <button id="mobileSbsBtn" onclick="toggleSBSMode()">SBS Mode</button>
+    <button id="mobileSunsetBtn" onclick="toggleSunsetMode()">Sunset</button>
     <button onclick="resetSettings()">Reset</button>
     <button onclick="clearDrawing()">Delete</button>
   </div>
@@ -468,6 +473,8 @@ let dynamicHue;
 let sbsMode;
 let sbsDistance;
 let zoom;
+let sunsetMode;
+let overexposureThreshold; // NEW: Overexposure Threshold
 
 // Mobile auto-hide timer
 let hideUITimer = null;
@@ -487,10 +494,13 @@ const defaultSettings = {
   waveMode: 'both',
   hueVariationAmp: 5,
   dynamicHue: true,
-  sbsMode: false, // NEW: Default to false
+  sbsMode: false,
   sbsDistance: 0,
   zoom: 1.0,
-  nonGreenHues: [0, 30, 60, 200, 240, 300] // Red, orange, yellow, cyan, blue, purple
+  nonGreenHues: [0, 30, 60, 200, 240, 300], // Red, orange, yellow, cyan, blue, purple
+  // UPDATED: Sunset hues now contain only the vibrant colors
+  sunsetHues: [0, 15, 30, 60, 240, 270, 300, 330],
+  overexposureThreshold: 0.9
 };
 
 /* --- Debugging: console only --- */
@@ -630,6 +640,8 @@ function setup() {
       if (state.sbsMode !== undefined) sbsMode = state.sbsMode;
       if (state.sbsDistance !== undefined) sbsDistance = state.sbsDistance;
       if (state.zoom !== undefined) zoom = state.zoom;
+      if (state.sunsetMode !== undefined) sunsetMode = state.sunsetMode;
+      if (state.overexposureThreshold !== undefined) overexposureThreshold = state.overexposureThreshold;
       restored = true;
       debugMessage('State loaded from URL!');
     } catch (e) {
@@ -662,6 +674,8 @@ function setup() {
   sbsMode ??= defaultSettings.sbsMode;
   sbsDistance ??= defaultSettings.sbsDistance;
   zoom ??= defaultSettings.zoom;
+  sunsetMode ??= defaultSettings.sunsetMode;
+  overexposureThreshold ??= defaultSettings.overexposureThreshold;
 
   // 4. Update ALL UI elements to reflect the loaded state.
   updateParamTable();
@@ -674,7 +688,12 @@ function setup() {
 }
 
 function draw() {
+  // Use blendMode(BLEND) to draw the background normally
+  blendMode(BLEND);
   background(0);
+
+  // Switch to blendMode(ADD) to create the glow effect
+  blendMode(ADD);
 
   // Corrected logic: if sbsMode is true, render side-by-side. Otherwise, render single.
   if (sbsMode) {
@@ -757,18 +776,21 @@ function drawTetrahedronLine() {
     let pulseValue = getDistancePulse(x, y, time);
 
     let hue, saturation, brightness, alpha;
+
+    // Determine the color palette based on sunsetMode
+    const colorHues = sunsetMode ? defaultSettings.sunsetHues : defaultSettings.nonGreenHues;
+
     if (button === RIGHT) {
       hue = 0;
       saturation = 0;
       brightness = 70 + 30 * sin(time * 200 * animSpeed + i * 0.4);
       alpha = 0.5 + 0.4 * sin(time * 300 * animSpeed + i * 0.5);
     } else {
-      const hues = defaultSettings.nonGreenHues; // [0, 30, 60, 200, 240, 300]
       if (dynamicHue) {
-        // Dynamic cycling through non-green hues
+        // Dynamic cycling through selected hues
         let progress = ((time * colorShiftSpeed + i * 10) % 360) / 360;
-        let index = Math.floor(progress * hues.length);
-        let baseHue = hues[index % hues.length];
+        let index = Math.floor(progress * colorHues.length);
+        let baseHue = colorHues[index % colorHues.length];
         if (hueVariationAmp > 0) {
           const variation = hueVariationAmp * sin(time * 100 * animSpeed + i * 0.5);
           if (baseHue <= 75) {
@@ -780,8 +802,8 @@ function drawTetrahedronLine() {
           hue = baseHue;
         }
       } else {
-        // Static: cycle through non-green hues based on point index
-        hue = hues[i % hues.length];
+        // Static: cycle through selected hues based on point index
+        hue = colorHues[i % colorHues.length];
       }
       saturation = 100;
       brightness = 70 + 30 * sin(time * 200 * animSpeed + i * 0.4);
@@ -800,6 +822,7 @@ function drawTetrahedronLine() {
     endShape(CLOSE);
   }
 }
+
 
 function getDistancePulse(x, y, time) {
   // If wave mode is off, just return a fixed pulse value of 1.
@@ -854,6 +877,15 @@ function toggleSBSMode() {
   redraw();
 }
 
+// NEW: Toggle Sunset Mode function
+function toggleSunsetMode() {
+  sunsetMode = !sunsetMode;
+  updateParamTable();
+  updateDesktopButtons();
+  updateMobileUI();
+  redraw();
+}
+
 function saveToHtmlFile() {
   // Create a state object with all the current settings and drawing data
   const state = {
@@ -874,7 +906,9 @@ function saveToHtmlFile() {
     dynamicHue,
     sbsMode,
     sbsDistance,
-    zoom
+    zoom,
+    sunsetMode,
+    overexposureThreshold
   };
 
   const stateStr = JSON.stringify(state);
@@ -977,6 +1011,9 @@ function changeParam(param, delta) {
     case 'zoom':
       zoom = Math.max(0.1, zoom + delta);
       break;
+    case 'overexposureThreshold':
+      overexposureThreshold = Math.max(0.1, Math.min(1.0, overexposureThreshold + delta));
+      break;
   }
   updateParamTable();
   updateDesktopButtons();
@@ -1026,6 +1063,9 @@ function setParam(param, value) {
     case 'zoom':
       zoom = Math.max(0.1, value);
       break;
+    case 'overexposureThreshold':
+      overexposureThreshold = Math.max(0.1, Math.min(1.0, value));
+      break;
   }
   updateParamTable();
   updateMobileUI(); // Sync mobile UI after setting param
@@ -1055,6 +1095,8 @@ function resetSettings() {
   sbsMode = defaultSettings.sbsMode;
   sbsDistance = defaultSettings.sbsDistance;
   zoom = defaultSettings.zoom;
+  sunsetMode = defaultSettings.sunsetMode;
+  overexposureThreshold = defaultSettings.overexposureThreshold;
 
   // Sync all UIs to the new default state
   updateParamTable();
@@ -1084,6 +1126,8 @@ function updateParamTable() {
   document.getElementById('sbsMode').textContent = sbsMode ? 'ON' : 'OFF';
   document.getElementById('sbsDistance').textContent = sbsDistance.toFixed(0);
   document.getElementById('zoom').textContent = zoom.toFixed(2);
+  document.getElementById('sunsetMode').textContent = sunsetMode ? 'ON' : 'OFF';
+  document.getElementById('overexposureThreshold').textContent = overexposureThreshold.toFixed(2);
 }
 
 function updateDesktopButtons() {
@@ -1102,6 +1146,10 @@ function updateDesktopButtons() {
   const sbsModeBtn = document.getElementById('sbsModeBtn');
   if (sbsModeBtn) {
     sbsModeBtn.textContent = `SBS Mode - ${sbsMode ? 'ON' : 'OFF'} [L]`;
+  }
+  const sunsetModeBtn = document.getElementById('sunsetModeBtn');
+  if (sunsetModeBtn) {
+    sunsetModeBtn.textContent = `Sunset Mode - ${sunsetMode ? 'ON' : 'OFF'}`;
   }
 }
 
@@ -1124,6 +1172,7 @@ function updateMobileUI() {
     'hueVariationAmp': hueVariationAmp,
     'sbsDistance': sbsDistance,
     'zoom': zoom,
+    'overexposureThreshold': overexposureThreshold
   };
 
   for (const param in sliders) {
@@ -1134,7 +1183,7 @@ function updateMobileUI() {
     }
     if (span) {
       if (param === 'animSpeed') span.textContent = sliders[param].toFixed(3);
-      else if (param === 'waveSpatialFreq' || param === 'zoom') span.textContent = sliders[param].toFixed(2);
+      else if (param === 'waveSpatialFreq' || param === 'zoom' || param === 'overexposureThreshold') span.textContent = sliders[param].toFixed(2);
       else if (param === 'breathingFreq' || param === 'pulseMin') span.textContent = sliders[param].toFixed(1);
       else span.textContent = Math.round(sliders[param]);
     }
@@ -1146,6 +1195,7 @@ function updateMobileUI() {
   const mobileWaveModeBtn = document.getElementById('mobileWaveModeBtn');
   const mobileDynamicHueBtn = document.getElementById('mobileDynamicHueBtn');
   const mobileSbsBtn = document.getElementById('mobileSbsBtn');
+  const mobileSunsetBtn = document.getElementById('mobileSunsetBtn');
 
   if (mobileNormalBtn) {
     if (numSymmetry === 1) {
@@ -1190,13 +1240,22 @@ function updateMobileUI() {
       mobileDynamicHueBtn.classList.remove('is-on');
     }
   }
-  
+
   if (mobileSbsBtn) {
     mobileSbsBtn.textContent = `SBS ${sbsMode ? 'ON' : 'OFF'}`;
     if (sbsMode) {
       mobileSbsBtn.classList.add('is-on');
     } else {
       mobileSbsBtn.classList.remove('is-on');
+    }
+  }
+
+  if (mobileSunsetBtn) {
+    mobileSunsetBtn.textContent = `Sunset ${sunsetMode ? 'ON' : 'OFF'}`;
+    if (sunsetMode) {
+      mobileSunsetBtn.classList.add('is-on');
+    } else {
+      mobileSunsetBtn.classList.remove('is-on');
     }
   }
 }
